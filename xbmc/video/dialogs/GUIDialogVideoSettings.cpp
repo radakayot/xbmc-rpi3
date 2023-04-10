@@ -350,6 +350,10 @@ void CGUIDialogVideoSettings::InitializeSettings()
   entries.push_back(TranslatableIntegerSettingOption(16327, VS_INTERLACEMETHOD_VAAPI_BOB));
   entries.push_back(TranslatableIntegerSettingOption(16328, VS_INTERLACEMETHOD_VAAPI_MADI));
   entries.push_back(TranslatableIntegerSettingOption(16329, VS_INTERLACEMETHOD_VAAPI_MACI));
+  entries.push_back(TranslatableIntegerSettingOption(16337, VS_INTERLACEMETHOD_MMAL_ADVANCED));
+  entries.push_back(TranslatableIntegerSettingOption(16338, VS_INTERLACEMETHOD_MMAL_ADVANCED_HALF));
+  entries.push_back(TranslatableIntegerSettingOption(16339, VS_INTERLACEMETHOD_MMAL_BOB));
+  entries.push_back(TranslatableIntegerSettingOption(16340, VS_INTERLACEMETHOD_MMAL_BOB_HALF));
   entries.push_back(TranslatableIntegerSettingOption(16320, VS_INTERLACEMETHOD_DXVA_AUTO));
 
   /* remove unsupported methods */

@@ -150,6 +150,7 @@ constexpr const char* CSettings::SETTING_VIDEOPLAYER_USEVDPAUVC1;
 constexpr const char* CSettings::SETTING_VIDEOPLAYER_USEDXVA2;
 constexpr const char* CSettings::SETTING_VIDEOPLAYER_USEVTB;
 constexpr const char* CSettings::SETTING_VIDEOPLAYER_USEPRIMEDECODER;
+constexpr const char* CSettings::SETTING_VIDEOPLAYER_USEMMALDECODER;
 constexpr const char* CSettings::SETTING_VIDEOPLAYER_USESTAGEFRIGHT;
 constexpr const char* CSettings::SETTING_VIDEOPLAYER_LIMITGUIUPDATE;
 constexpr const char* CSettings::SETTING_VIDEOPLAYER_SUPPORTMVC;

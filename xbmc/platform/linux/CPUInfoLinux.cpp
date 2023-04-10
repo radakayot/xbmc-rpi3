@@ -94,7 +94,8 @@ CCPUInfoLinux::CCPUInfoLinux()
   if (freqPath.Exists())
     m_freqPath = freqStr;
 
-  const std::array<std::string, 4> modules = {
+  const std::array<std::string, 5> modules = {
+      "cpu_thermal",
       "coretemp",
       "k10temp",
       "scpi_sensors",

@@ -29,7 +29,7 @@ void CVideoBuffer::Acquire()
 
 void CVideoBuffer::Acquire(std::shared_ptr<IVideoBufferPool> pool)
 {
-  m_refCount++;
+  Acquire();
   m_pool = std::move(pool);
 }
 

@@ -87,9 +87,9 @@ class CVideoBuffer
 public:
   CVideoBuffer() = delete;
   virtual ~CVideoBuffer() = default;
-  void Acquire();
-  void Acquire(std::shared_ptr<IVideoBufferPool> pool);
-  void Release();
+  virtual void Acquire();
+  virtual void Acquire(std::shared_ptr<IVideoBufferPool> pool);
+  virtual void Release();
   int GetId() const { return m_id; }
 
   virtual AVPixelFormat GetFormat();

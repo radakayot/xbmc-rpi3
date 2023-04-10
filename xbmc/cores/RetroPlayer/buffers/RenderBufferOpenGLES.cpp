@@ -71,22 +71,22 @@ bool CRenderBufferOpenGLES::UploadTexture()
       glTexSubImage2D(m_textureTarget, 0, 0, y, m_width, 1, m_pixelformat, m_pixeltype, pixels);
     }
   }
+#ifdef GL_UNPACK_ROW_LENGTH_EXT
   else if (m_context.IsExtSupported("GL_EXT_unpack_subimage"))
   {
-#ifdef GL_UNPACK_ROW_LENGTH_EXT
     glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, stride / m_bpp);
     glTexSubImage2D(m_textureTarget, 0, 0, 0, m_width, m_height, m_pixelformat, m_pixeltype,
                     m_data.data());
     glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, 0);
-#endif
   }
+#else
   else
   {
     uint8_t* pixels = const_cast<uint8_t*>(m_data.data());
     for (unsigned int y = 0; y < m_height; ++y, pixels += stride)
       glTexSubImage2D(m_textureTarget, 0, 0, y, m_width, 1, m_pixelformat, m_pixeltype, pixels);
   }
-
+#endif
   glBindTexture(m_textureTarget, 0);
 
   return true;

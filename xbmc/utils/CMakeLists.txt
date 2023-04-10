@@ -202,17 +202,19 @@ if(OPENGL_FOUND OR OPENGLES_FOUND)
   list(APPEND HEADERS GLUtils.h)
 endif()
 
-if("gbm" IN_LIST CORE_PLATFORM_NAME_LC OR "wayland" IN_LIST CORE_PLATFORM_NAME_LC)
+if("gbm" IN_LIST CORE_PLATFORM_NAME_LC OR "dmx" IN_LIST CORE_PLATFORM_NAME_LC OR "wayland" IN_LIST CORE_PLATFORM_NAME_LC)
   list(APPEND SOURCES BufferObject.cpp
                       BufferObjectFactory.cpp)
   list(APPEND HEADERS BufferObject.h
                       BufferObjectFactory.h)
+endif()
 
-  if("gbm" IN_LIST CORE_PLATFORM_NAME_LC)
-    list(APPEND SOURCES DumbBufferObject.cpp)
-    list(APPEND SOURCES DumbBufferObject.h)
-  endif()
+if("gbm" IN_LIST CORE_PLATFORM_NAME_LC)
+  list(APPEND SOURCES DumbBufferObject.cpp)
+  list(APPEND SOURCES DumbBufferObject.h)
+endif()
 
+if("gbm" IN_LIST CORE_PLATFORM_NAME_LC OR "wayland" IN_LIST CORE_PLATFORM_NAME_LC)
   if(HAVE_LINUX_MEMFD AND HAVE_LINUX_UDMABUF)
     list(APPEND SOURCES UDMABufferObject.cpp)
     list(APPEND HEADERS UDMABufferObject.h)
@@ -227,7 +229,9 @@ if("gbm" IN_LIST CORE_PLATFORM_NAME_LC OR "wayland" IN_LIST CORE_PLATFORM_NAME_L
     list(APPEND SOURCES GBMBufferObject.cpp)
     list(APPEND HEADERS GBMBufferObject.h)
   endif()
+endif()
 
+if("gbm" IN_LIST CORE_PLATFORM_NAME_LC OR "wayland" IN_LIST CORE_PLATFORM_NAME_LC)
   if(EGL_FOUND)
     list(APPEND SOURCES EGLImage.cpp)
     list(APPEND HEADERS EGLImage.h)

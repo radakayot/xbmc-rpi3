@@ -1,0 +1,3 @@
+xbmc/cores/RetroPlayer/process/dmx cores/RetroPlayer/process/dmx
+xbmc/cores/VideoPlayer/Process/dmx cores/VideoPlayer/Process/dmx
+xbmc/windowing/dmx windowing/dmx

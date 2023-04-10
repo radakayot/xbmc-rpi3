@@ -13,6 +13,9 @@
 #include "guilib/GUIWindowManager.h"
 #include "utils/Screenshot.h"
 #include "windowing/GraphicContext.h"
+#ifdef HAVE_DMX
+#include "windowing/dmx/WinSystemDmx.h"
+#endif
 
 #include <mutex>
 #include <vector>
@@ -50,7 +53,17 @@ bool CScreenshotSurfaceGLES::Capture()
   m_height = viewport[3] - viewport[1];
   m_stride = m_width * 4;
   std::vector<uint8_t> surface(m_stride * m_height);
+#if defined(HAVE_DMX)
+  auto winsystemDmx = dynamic_cast<KODI::WINDOWING::DMX::CWinSystemDmx*>(winsystem);
 
+  if (winsystemDmx)
+  {
+    winsystemDmx->ReadPixels(viewport[0], viewport[1], viewport[2], viewport[3], GL_RGBA, true, surface.data());
+    m_buffer = new unsigned char[m_stride * m_height];
+    for (int y = 0; y < m_height; y++)
+      memcpy(m_buffer + y * m_stride, surface.data() + y * m_stride, m_stride);
+  }
+#else
   //read pixels from the backbuffer
   glReadPixels(viewport[0], viewport[1], viewport[2], viewport[3], GL_RGBA, GL_UNSIGNED_BYTE, static_cast<GLvoid*>(surface.data()));
 
@@ -67,6 +80,6 @@ bool CScreenshotSurfaceGLES::Capture()
 
     memcpy(m_buffer + y * m_stride, surface.data() + (m_height - y - 1) * m_stride, m_stride);
   }
-
+#endif
   return m_buffer != nullptr;
 }

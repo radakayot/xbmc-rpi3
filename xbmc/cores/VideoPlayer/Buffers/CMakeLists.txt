@@ -10,4 +10,11 @@ if("gbm" IN_LIST CORE_PLATFORM_NAME_LC OR "wayland" IN_LIST CORE_PLATFORM_NAME_L
                       VideoBufferPoolDMA.h)
 endif()
 
+if(MMAL_FOUND)
+  list(APPEND SOURCES VideoBufferMMAL.cpp
+                      VideoBufferPoolMMAL.cpp)
+  list(APPEND HEADERS VideoBufferMMAL.h
+                      VideoBufferPoolMMAL.h)
+endif()
+
 core_add_library(videoplayer-buffers)

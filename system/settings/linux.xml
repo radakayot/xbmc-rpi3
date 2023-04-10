@@ -193,6 +193,39 @@
           </constraints>
           <control type="spinner" format="string" />
         </setting>
+        <setting id="videoplayer.usemmaldecoder" type="boolean" label="36439" help="36440">
+          <requirement>HAVE_MMAL</requirement>
+          <visible>false</visible>
+          <level>2</level>
+          <default>true</default>
+          <control type="toggle" />
+        </setting>
+        <setting id="videoplayer.usemmaldecoderforhw" type="boolean" parent="videoplayer.usemmaldecoder" label="13458" help="36440">
+          <requirement>HAVE_MMAL</requirement>
+          <visible>false</visible>
+          <dependencies>
+            <dependency type="enable">
+              <condition setting="videoplayer.usemmaldecoder" operator="is">true</condition>
+            </dependency>
+          </dependencies>
+          <level>3</level>
+          <default>true</default>
+          <control type="toggle" />
+        </setting>
+        <setting id="videoplayer.limitguiupdate" type="integer" label="38013" help="38014">
+          <requirement>HAVE_MMAL</requirement>
+          <level>2</level>
+          <default>10</default>
+          <constraints>
+            <minimum label="38015">0</minimum> <!-- Unlimited -->
+            <step>5</step>
+            <maximum>30</maximum>
+          </constraints>
+          <control type="spinner" format="string">
+            <formatlabel>38016</formatlabel>
+          </control>
+          <control type="edit" format="integer" />
+        </setting>
       </group>
     </category>
   </section>

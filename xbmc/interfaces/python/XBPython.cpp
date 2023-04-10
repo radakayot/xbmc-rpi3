@@ -17,6 +17,7 @@
 #include "ServiceBroker.h"
 #include "Util.h"
 #include "cores/DllLoader/DllLoaderContainer.h"
+#include "filesystem/File.h"
 #include "filesystem/SpecialProtocol.h"
 #include "interfaces/AnnouncementManager.h"
 #include "interfaces/legacy/AddonUtils.h"
@@ -516,6 +517,12 @@ bool XBPython::OnScriptInitialized(ILanguageInvoker* invoker)
     Py_SetPath(pythonPathW.c_str());
 
     Py_OptimizeFlag = 1;
+#endif
+
+#if !defined(TARGET_WINDOWS)
+    // use Kodi provided cert if available
+    if (XFILE::CFile::Exists("special://xbmc/system/certs/cacert.pem"))
+      setenv("SSL_CERT_FILE", CSpecialProtocol::TranslatePath("special://xbmc/system/certs/cacert.pem").c_str(), 1);
 #endif
 
     Py_Initialize();

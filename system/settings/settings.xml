@@ -2517,6 +2517,7 @@
               <condition>HAS_DX</condition>
               <condition>HAVE_IOS</condition>
               <condition>HAVE_GBM</condition>
+              <condition>HAVE_DMX</condition>
             </or>
           </requirement>
           <level>0</level>
