@@ -189,35 +189,15 @@ int32_t CVideoBufferPoolMMAL::ProcessBufferCallback(MMALPool pool,
   }
   return MMAL_TRUE;
 }
-/*
-CVideoBufferPoolMMAL::CVideoBufferPoolMMAL()
-{
-  std::unique_lock<CCriticalSection> lock(m_poolLock);
-}
-*/
+
 CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
 {
-
-  //CLog::Log(LOGDEBUG, "CVideoBufferPoolMMAL::{} - destroying", __FUNCTION__);
   Dispose();
   if (m_portFormat)
   {
     mmal_format_free(m_portFormat);
     m_portFormat = nullptr;
   }
-
-  if (m_component)
-  {
-    //for (auto buf : m_all)
-    //  delete buf;
-    //m_all.clear();
-
-    if (mmal_component_release(m_component) != MMAL_SUCCESS)
-      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to release component", __FUNCTION__);
-    m_component = nullptr;
-  }
-
-  //CLog::Log(LOGDEBUG, "CVideoBufferPoolMMAL::{} - destroyed", __FUNCTION__);
 }
 
 void CVideoBufferPoolMMAL::Initialize()
@@ -558,23 +538,25 @@ bool CVideoBufferPoolMMAL::IsCompatible(AVPixelFormat format, int size)
 
 void CVideoBufferPoolMMAL::Released(CVideoBufferManager& videoBufferManager)
 {
-  //CLog::Log(LOGDEBUG, "CVideoBufferPoolMMAL::{} - released pool", __FUNCTION__);
   videoBufferManager.RegisterPool(std::make_shared<CVideoBufferPoolMMAL>());
 }
 
 void CVideoBufferPoolMMAL::Discard(CVideoBufferManager* bm, ReadyToDispose cb)
 {
-  //CLog::Log(LOGDEBUG, "CVideoBufferPoolMMAL::{} - discarding pool", __FUNCTION__);
   if (m_used.empty())
   {
     (bm->*cb)(this);
-    for (auto buffer : m_all)
-      delete buffer;
-    m_all.clear();
   }
   else
   {
     m_bufferManager = bm;
     m_disposeCallback = cb;
+  }
+
+  if (m_component)
+  {
+    if (mmal_component_release(m_component) != MMAL_SUCCESS)
+      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to release component", __FUNCTION__);
+    m_component = nullptr;
   }
 }
