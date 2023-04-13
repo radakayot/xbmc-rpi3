@@ -437,11 +437,11 @@ void CVideoBufferPoolMMAL::Configure(MMALFormat portFormat,
         mmal_port_parameter_set_boolean(m_port, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
         if (mmal_port_format_commit(m_port) == MMAL_SUCCESS)
         {
-          mmal_format_full_copy(m_portFormat, m_port->format);
           m_portFormat->encoding = MMAL_ENCODING_UNKNOWN;
           m_portFormat->encoding_variant = MMAL_ENCODING_UNKNOWN;
           m_portFormat->extradata = nullptr;
           m_portFormat->extradata_size = 0;
+          mmal_format_full_copy(m_portFormat, m_port->format);
         }
         else
           CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to commit port", __FUNCTION__);
