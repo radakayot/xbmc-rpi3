@@ -49,13 +49,11 @@ void CVideoBufferMMAL::Dispose()
   {
     if (m_refCount <= 0)
     {
-      m_header->priv->owner = nullptr;
-      m_header->priv->pre_release_userdata = nullptr;
-      m_header->priv->pf_pre_release = nullptr;
-      m_header->priv->pf_release = nullptr;
-
       if (m_picture.videoBuffer)
         m_picture.videoBuffer = nullptr;
+
+      if (m_locked)
+        mmal_buffer_header_mem_unlock(m_header);
 
       if (m_refPtr)
       {
@@ -71,21 +69,19 @@ void CVideoBufferMMAL::Dispose()
 
         av_mmal_zc_unref(m_refPtr);
         m_refPtr = nullptr;
-
-        m_header->user_data = nullptr;
-        m_header->priv->refcount = 0;
       }
       else
       {
-        if (m_locked)
-          mmal_buffer_header_mem_unlock(m_header);
-        m_header->user_data = nullptr;
-        m_header->priv->refcount = 0;
-        m_header->priv->reference = nullptr;
-        if (m_header->priv->payload != nullptr)
-          mmal_port_payload_free((MMALPort)m_header->priv->payload_context,
-                                 (uint8_t*)m_header->priv->payload);
+        if (m_header->priv->payload_context && m_header->priv->payload)
+        {
+          MMALPort port = (MMALPort)m_header->priv->payload_context;
+          ((MMALPortPrivate)port->priv)->pf_payload_free(port, (uint8_t*)m_header->priv->payload);
+        }
       }
+      m_header->user_data = nullptr;
+      m_header->priv->refcount = 0;
+      m_header->priv->reference = nullptr;
+
       vcos_free(m_header);
       m_portFormat = nullptr;
       m_header = nullptr;
@@ -159,44 +155,36 @@ void CVideoBufferMMAL::Acquire(std::shared_ptr<IVideoBufferPool> pool)
 void CVideoBufferMMAL::Release()
 {
   std::unique_lock<CCriticalSection> lock(m_critSection);
-  if (m_disposing)
+  m_refCount = m_header->priv->refcount;
+  if (--m_refCount <= 0)
   {
-    --m_refCount;
-    Dispose();
+    if (m_picture.videoBuffer)
+      m_picture.videoBuffer = nullptr;
+
+    if (m_refPtr)
+    {
+      av_mmal_zc_unref(m_refPtr);
+      m_refPtr = nullptr;
+    }
+
+    if (m_refCount != 0)
+      m_refCount = 0;
+    else
+    {
+      if (m_locked)
+      {
+        mmal_buffer_header_mem_unlock(m_header);
+        m_locked = false;
+      }
+      mmal_buffer_header_release(m_header);
+    }
+
+    if (m_pool)
+      m_pool = nullptr;
   }
   else
   {
-    m_refCount = m_header->priv->refcount;
-    if (--m_refCount <= 0)
-    {
-      if (m_picture.videoBuffer)
-        m_picture.videoBuffer = nullptr;
-
-      if (m_refPtr)
-      {
-        av_mmal_zc_unref(m_refPtr);
-        m_refPtr = nullptr;
-      }
-
-      if (m_refCount != 0)
-        m_refCount = 0;
-      else
-      {
-        if (m_locked)
-        {
-          mmal_buffer_header_mem_unlock(m_header);
-          m_locked = false;
-        }
-        mmal_buffer_header_release(m_header);
-      }
-
-      if (m_pool)
-        m_pool = nullptr;
-    }
-    else
-    {
-      mmal_buffer_header_release(m_header);
-    }
+    mmal_buffer_header_release(m_header);
   }
 }
 
