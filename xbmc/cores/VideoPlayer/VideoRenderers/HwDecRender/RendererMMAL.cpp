@@ -204,6 +204,12 @@ CRendererMMAL::~CRendererMMAL()
 
   m_state = MRS_DESTROYING;
 
+  if (m_isp->is_enabled != 0)
+    mmal_component_disable(m_isp);
+
+  if (m_renderer->is_enabled != 0)
+    mmal_component_disable(m_renderer);
+
   if (m_port->is_enabled != 0)
   {
     std::unique_lock<CCriticalSection> lock(m_portLock);
@@ -229,12 +235,6 @@ CRendererMMAL::~CRendererMMAL()
     else
       CLog::Log(LOGERROR, "CRendererMMAL::{} - failed to disable isp control port", __FUNCTION__);
   }
-
-  if (m_isp->is_enabled != 0)
-    mmal_component_disable(m_isp);
-
-  if (m_renderer->is_enabled != 0)
-    mmal_component_disable(m_renderer);
 
   if (m_connection)
   {
