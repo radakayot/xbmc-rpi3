@@ -243,8 +243,6 @@ CRendererMMAL::~CRendererMMAL()
     m_connection = nullptr;
   }
 
-  m_port->userdata = nullptr;
-
   if (m_portFormat)
   {
     mmal_format_free(m_portFormat);
