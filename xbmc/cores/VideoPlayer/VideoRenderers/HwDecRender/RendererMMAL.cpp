@@ -199,9 +199,7 @@ CRendererMMAL::CRendererMMAL(KODI::WINDOWING::DMX::CWinSystemDmx* winSystem)
 
 CRendererMMAL::~CRendererMMAL()
 {
-  if (m_state == MRS_RENDERING)
-    Flush(false);
-
+  Flush(false);
   m_state = MRS_DESTROYING;
 
   if (m_isp->is_enabled != 0)
