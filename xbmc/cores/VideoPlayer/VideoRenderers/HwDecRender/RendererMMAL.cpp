@@ -579,11 +579,9 @@ bool CRendererMMAL::Flush(bool saveBuffers)
           flush = true;
       }
     }
-    if (flush && m_port->is_enabled != 0)
+    if (state != MRS_FLUSHED && m_port->is_enabled != 0 && flush)
     {
       CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushing input port", __FUNCTION__);
-      // Test flushing without locking component.
-      //if (mmal_port_flush(m_port) != MMAL_SUCCESS)
       if (((MMALPortPrivate)m_port->priv)->pf_flush(m_port) != MMAL_SUCCESS)
         CLog::Log(LOGERROR, "CRendererMMAL::{} - failed to flush input port", __FUNCTION__);
       else
