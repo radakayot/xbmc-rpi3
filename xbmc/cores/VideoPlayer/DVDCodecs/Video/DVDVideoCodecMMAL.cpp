@@ -231,7 +231,6 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo) : CDVDVideoCod
       if (status == MMAL_SUCCESS)
       {
         uint32_t* codecs = (uint32_t*)((uint8_t*)parameter + sizeof(*parameter));
-        char buf[5] = {0, 0, 0, 0, 0};
         for (uint32_t i = 0; i < 16; i++)
         {
           if (i < (parameter->size - sizeof(*parameter)) / 4)
@@ -494,7 +493,7 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
   mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_INTERPOLATE_TIMESTAMPS,
                                   hints.ptsinvalid ? MMAL_TRUE : MMAL_FALSE);
 
-  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS, -10);
+  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS, -10); //DPB=3+9, 12 total
 
   if (mmal_port_format_commit(m_input) != MMAL_SUCCESS)
   {

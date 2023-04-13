@@ -570,11 +570,13 @@ bool CRendererMMAL::Flush(bool saveBuffers)
             flush = true;
         }
       }
+      lock.unlock();
       if (flush && m_port->is_enabled != 0)
       {
         std::unique_lock<CCriticalSection> plock(m_portLock);
         if (mmal_port_disable(m_port) != MMAL_SUCCESS)
           CLog::Log(LOGERROR, "CRendererMMAL::{} - failed to flush input port", __FUNCTION__);
+        lock.lock();
         for (int i = 0; i < MMAL_RENDERER_NUM_BUFFERS; i++)
         {
           if (m_buffers[i] != nullptr)
@@ -583,6 +585,7 @@ bool CRendererMMAL::Flush(bool saveBuffers)
             m_buffers[i] = nullptr;
           }
         }
+        lock.unlock();
       }
     }
   }
