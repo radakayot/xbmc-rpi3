@@ -203,6 +203,16 @@ CRendererMMAL::~CRendererMMAL()
     Flush(false);
 
   m_state = MRS_DESTROYING;
+
+  if (m_port->is_enabled != 0)
+  {
+    std::unique_lock<CCriticalSection> lock(m_portLock);
+    if (mmal_port_disable(m_port) == MMAL_SUCCESS)
+      m_port->userdata = nullptr;
+    else
+      CLog::Log(LOGERROR, "CRendererMMAL::{} - failed to disable renderer port", __FUNCTION__);
+  }
+
   if (m_renderer->control->is_enabled != 0)
   {
     if (mmal_port_disable(m_renderer->control) == MMAL_SUCCESS)
