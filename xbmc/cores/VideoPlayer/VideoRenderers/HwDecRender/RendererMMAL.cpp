@@ -563,42 +563,40 @@ bool CRendererMMAL::Flush(bool saveBuffers)
 {
   MMALRendererState state = m_state;
   m_state = MRS_FLUSHING;
-  if (state == MRS_RENDERING)
+
+  if (!saveBuffers)
   {
-    if (!saveBuffers)
+    std::unique_lock<CCriticalSection> lock(m_bufferLock);
+    bool flush = false;
+    for (int i = 0; i < MMAL_RENDERER_NUM_BUFFERS; i++)
     {
-      std::unique_lock<CCriticalSection> lock(m_bufferLock);
-      bool flush = false;
+      if (m_buffers[i] != nullptr)
+      {
+        if (m_buffers[i]->GetRenderIndex() == -1)
+        {
+          m_buffers[i]->Release();
+          m_buffers[i] = nullptr;
+        }
+        else
+          flush = true;
+      }
+    }
+    if (flush && m_port->is_enabled != 0)
+    {
+      CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushing input port", __FUNCTION__);
+      // Test flushing without locking component.
+      //if (mmal_port_flush(m_port) != MMAL_SUCCESS)
+      if (((MMALPortPrivate)m_port->priv)->pf_flush(m_port) != MMAL_SUCCESS)
+        CLog::Log(LOGERROR, "CRendererMMAL::{} - failed to flush input port", __FUNCTION__);
+      else
+        CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushed input port", __FUNCTION__);
+
       for (int i = 0; i < MMAL_RENDERER_NUM_BUFFERS; i++)
       {
         if (m_buffers[i] != nullptr)
         {
-          if (m_buffers[i]->GetRenderIndex() == -1)
-          {
-            m_buffers[i]->Release();
-            m_buffers[i] = nullptr;
-          }
-          else
-            flush = true;
-        }
-      }
-      if (flush && m_port->is_enabled != 0)
-      {
-        CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushing input port", __FUNCTION__);
-        // Test flushing without locking component.
-        //if (mmal_port_flush(m_port) != MMAL_SUCCESS)
-        if (((MMALPortPrivate)m_port->priv)->pf_flush(m_port) != MMAL_SUCCESS)
-          CLog::Log(LOGERROR, "CRendererMMAL::{} - failed to flush input port", __FUNCTION__);
-        else
-          CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushed input port", __FUNCTION__);
-
-        for (int i = 0; i < MMAL_RENDERER_NUM_BUFFERS; i++)
-        {
-          if (m_buffers[i] != nullptr)
-          {
-            m_buffers[i]->Release();
-            m_buffers[i] = nullptr;
-          }
+          m_buffers[i]->Release();
+          m_buffers[i] = nullptr;
         }
       }
     }
