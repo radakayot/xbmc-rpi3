@@ -24,22 +24,18 @@
 
 namespace MMAL
 {
-typedef MMAL_EVENT_FORMAT_CHANGED_T* MMALFormatChangedEventArgs;
-typedef MMAL_EVENT_END_OF_STREAM_T* MMALEndOfStreamEventArgs;
-typedef MMAL_EVENT_PARAMETER_CHANGED_T* MMALParameterChangedEventArgs;
-
 enum MMALCodecState
 {
-  MCS_UNINITIALIZED = 0, // 0
-  MCS_INITIALIZED, // 1 x
-  MCS_OPENED, // 2 x
-  MCS_DECODING, // 3
-  MCS_FLUSHING, // 4 x
-  MCS_FLUSHED, // 5 x
-  MCS_CLOSING, // 6
-  MCS_CLOSED, // 7
+  MCS_UNINITIALIZED = 0,
+  MCS_INITIALIZED,
+  MCS_OPENED,
+  MCS_DECODING,
+  MCS_FLUSHING,
+  MCS_FLUSHED,
+  MCS_CLOSING,
+  MCS_CLOSED,
   MCS_RESET,
-  MCS_ERROR, // 8
+  MCS_ERROR,
 };
 
 class CDVDVideoCodecMMAL : public CDVDVideoCodec

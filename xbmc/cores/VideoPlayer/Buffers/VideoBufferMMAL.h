@@ -32,6 +32,34 @@ typedef MMAL_POOL_T* MMALPool;
 typedef MMAL_QUEUE_T* MMALQueue;
 typedef MMAL_ES_FORMAT_T* MMALFormat;
 typedef MMAL_BUFFER_HEADER_T* MMALBufferHeader;
+typedef MMAL_PARAMETER_HEADER_T* MMALParameterHeader;
+typedef MMAL_PORT_BH_CB_T MMALPortBufferHeaderCallback;
+
+// Internal struct to test flush and disable without lock
+typedef struct MMAL_PORT_PRIVATE_T
+{
+  uint32_t* core;
+  uint32_t* module;
+  uint32_t* clock;
+
+  MMALStatus (*pf_set_format)(MMALPort port);
+  MMALStatus (*pf_enable)(MMALPort port, MMALPortBufferHeaderCallback);
+  MMALStatus (*pf_disable)(MMALPort port);
+  MMALStatus (*pf_send)(MMALPort port, MMALBufferHeader);
+  MMALStatus (*pf_flush)(MMALPort port);
+  MMALStatus (*pf_parameter_set)(MMALPort port, const MMALParameterHeader param);
+  MMALStatus (*pf_parameter_get)(MMALPort port, MMALParameterHeader param);
+  MMALStatus (*pf_connect)(MMALPort port, MMALPort other_port);
+
+  uint8_t* (*pf_payload_alloc)(MMALPort port, uint32_t payload_size);
+  void (*pf_payload_free)(MMALPort port, uint8_t* payload);
+
+} MMAL_PORT_PRIVATE_T, *MMALPortPrivate;
+
+typedef MMAL_PORT_USERDATA_T* MMALPortUserData;
+typedef MMAL_EVENT_FORMAT_CHANGED_T* MMALFormatChangedEventArgs;
+typedef MMAL_EVENT_END_OF_STREAM_T* MMALEndOfStreamEventArgs;
+typedef MMAL_EVENT_PARAMETER_CHANGED_T* MMALParameterChangedEventArgs;
 
 class CVideoBufferMMAL : public CVideoBuffer
 {
@@ -68,7 +96,10 @@ public:
   MMALFormat GetPortFormat();
   void SetPortFormat(MMALFormat portFormat);
 
-  bool UpdateBufferFromFrame(AVFrame* frame, AVCodecID codecId, bool flushed, AVZcEnvPtr envPtr = nullptr);
+  bool UpdateBufferFromFrame(AVFrame* frame,
+                             AVCodecID codecId,
+                             bool flushed,
+                             AVZcEnvPtr envPtr = nullptr);
 
   void ReleasePtr();
   void Dispose();

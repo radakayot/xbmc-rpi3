@@ -128,7 +128,7 @@ CRendererMMAL::CRendererMMAL(KODI::WINDOWING::DMX::CWinSystemDmx* winSystem)
 
   m_bufferCount = MMAL_RENDERER_NUM_BUFFERS - 2;
   m_port = m_renderer->input[0];
-  m_port->userdata = (struct MMAL_PORT_USERDATA_T*)this;
+  m_port->userdata = (MMALPortUserData)this;
   m_port->buffer_num = m_bufferCount;
   m_port->buffer_num_min = 2;
   m_port->buffer_num_recommended = m_bufferCount;
@@ -143,21 +143,21 @@ CRendererMMAL::CRendererMMAL(KODI::WINDOWING::DMX::CWinSystemDmx* winSystem)
   mmal_port_parameter_set_uint32(m_port, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
   mmal_port_parameter_set_boolean(m_port, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
 
-  MMAL_PARAMETER_HEADER_T* parameter =
+  MMALParameterHeader parameter =
       mmal_port_parameter_alloc_get(m_port, MMAL_PARAMETER_SUPPORTED_ENCODINGS, 0, &status);
   if (status == MMAL_SUCCESS)
   {
-    uint32_t* formats = (uint32_t*)((uint8_t*)parameter + sizeof(*parameter));
+    uint32_t* formats = (uint32_t*)((uint8_t*)parameter + sizeof(MMALParameterHeader));
     for (uint32_t i = 0; i < 24; i++)
     {
-      if (i < (parameter->size - sizeof(*parameter)) / 4)
+      if (i < (parameter->size - sizeof(MMALParameterHeader)) / 4)
         m_renderFormats[i] = formats[i];
       else
         m_renderFormats[i] = MMAL_ENCODING_UNKNOWN;
     }
     mmal_port_parameter_free(parameter);
   }
-  m_renderer->control->userdata = (struct MMAL_PORT_USERDATA_T*)this;
+  m_renderer->control->userdata = (MMALPortUserData)this;
   status = mmal_port_enable(m_renderer->control, CRendererMMAL::ProcessControlCallback);
   if (status != MMAL_SUCCESS)
   {
@@ -165,7 +165,7 @@ CRendererMMAL::CRendererMMAL(KODI::WINDOWING::DMX::CWinSystemDmx* winSystem)
     return;
   }
   MMALPort ispPort = m_isp->input[0];
-  ispPort->userdata = (struct MMAL_PORT_USERDATA_T*)this;
+  ispPort->userdata = (MMALPortUserData)this;
   ispPort->buffer_num = m_bufferCount;
   ispPort->buffer_num_min = 2;
   ispPort->buffer_num_recommended = m_bufferCount;
@@ -177,17 +177,17 @@ CRendererMMAL::CRendererMMAL(KODI::WINDOWING::DMX::CWinSystemDmx* winSystem)
       mmal_port_parameter_alloc_get(ispPort, MMAL_PARAMETER_SUPPORTED_ENCODINGS, 0, &status);
   if (status == MMAL_SUCCESS)
   {
-    uint32_t* formats = (uint32_t*)((uint8_t*)parameter + sizeof(*parameter));
+    uint32_t* formats = (uint32_t*)((uint8_t*)parameter + sizeof(MMALParameterHeader));
     for (uint32_t i = 0; i < 64; i++)
     {
-      if (i < (parameter->size - sizeof(*parameter)) / 4)
+      if (i < (parameter->size - sizeof(MMALParameterHeader)) / 4)
         m_ispFormats[i] = formats[i];
       else
         m_ispFormats[i] = MMAL_ENCODING_UNKNOWN;
     }
     mmal_port_parameter_free(parameter);
   }
-  m_isp->control->userdata = (struct MMAL_PORT_USERDATA_T*)this;
+  m_isp->control->userdata = (MMALPortUserData)this;
   status = mmal_port_enable(m_isp->control, CRendererMMAL::ProcessControlCallback);
   if (status != MMAL_SUCCESS)
   {
@@ -582,15 +582,16 @@ bool CRendererMMAL::Flush(bool saveBuffers)
             flush = true;
         }
       }
-      lock.unlock();
       if (flush && m_port->is_enabled != 0)
       {
         CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushing input port", __FUNCTION__);
-        if (mmal_port_flush(m_port) != MMAL_SUCCESS)
+        // Test flushing without locking component.
+        //if (mmal_port_flush(m_port) != MMAL_SUCCESS)
+        if (((MMALPortPrivate)m_port->priv)->pf_flush(m_port) != MMAL_SUCCESS)
           CLog::Log(LOGERROR, "CRendererMMAL::{} - failed to flush input port", __FUNCTION__);
         else
           CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushed input port", __FUNCTION__);
-        lock.lock();
+
         for (int i = 0; i < MMAL_RENDERER_NUM_BUFFERS; i++)
         {
           if (m_buffers[i] != nullptr)

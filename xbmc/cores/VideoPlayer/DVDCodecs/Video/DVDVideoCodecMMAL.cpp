@@ -201,15 +201,15 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo) : CDVDVideoCod
     int* priority = (int*)((uint8_t*)m_component->priv + 28);
     *priority = VCOS_THREAD_PRI_ABOVE_NORMAL;
 
-    m_component->control->userdata = (struct MMAL_PORT_USERDATA_T*)this;
+    m_component->control->userdata = (MMALPortUserData)this;
     status = mmal_port_enable(m_component->control, CDVDVideoCodecMMAL::ProcessControlCallback);
     if (status == MMAL_SUCCESS)
     {
-      MMAL_PARAMETER_HEADER_T* parameter = nullptr;
+      MMALParameterHeader parameter = nullptr;
       m_input = m_component->input[0];
       m_output = m_component->output[0];
-      m_input->userdata = (struct MMAL_PORT_USERDATA_T*)this;
-      m_output->userdata = (struct MMAL_PORT_USERDATA_T*)this;
+      m_input->userdata = (MMALPortUserData)this;
+      m_output->userdata = (MMALPortUserData)this;
       m_portFormat = mmal_format_alloc();
       m_portFormat->extradata = nullptr;
       m_portFormat->extradata_size = 0;
@@ -230,10 +230,10 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo) : CDVDVideoCod
           mmal_port_parameter_alloc_get(m_input, MMAL_PARAMETER_SUPPORTED_ENCODINGS, 0, &status);
       if (status == MMAL_SUCCESS)
       {
-        uint32_t* codecs = (uint32_t*)((uint8_t*)parameter + sizeof(*parameter));
+        uint32_t* codecs = (uint32_t*)((uint8_t*)parameter + sizeof(MMALParameterHeader));
         for (uint32_t i = 0; i < 16; i++)
         {
-          if (i < (parameter->size - sizeof(*parameter)) / 4)
+          if (i < (parameter->size - sizeof(MMALParameterHeader)) / 4)
             m_supportedCodecs[i] = codecs[i];
           else
             m_supportedCodecs[i] = MMAL_ENCODING_UNKNOWN;
@@ -493,7 +493,8 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
   mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_INTERPOLATE_TIMESTAMPS,
                                   hints.ptsinvalid ? MMAL_TRUE : MMAL_FALSE);
 
-  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS, -10); //DPB=3+9, 12 total
+  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS,
+                                 -10); //DPB=3+9, 12 total
 
   if (mmal_port_format_commit(m_input) != MMAL_SUCCESS)
   {
