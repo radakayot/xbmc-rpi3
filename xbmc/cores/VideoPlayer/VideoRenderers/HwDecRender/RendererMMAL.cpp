@@ -202,17 +202,12 @@ CRendererMMAL::~CRendererMMAL()
   m_state = MRS_DESTROYING;
 
   Flush(false);
-
-  if (m_isp->is_enabled != 0)
-    mmal_component_disable(m_isp);
-
-  if (m_renderer->is_enabled != 0)
-    mmal_component_disable(m_renderer);
+  
+  std::unique_lock<CCriticalSection> lock(m_portLock);
 
   if (m_port->is_enabled != 0)
   {
     CLog::Log(LOGDEBUG, "CRendererMMAL::{} - disabling input port", __FUNCTION__);
-    std::unique_lock<CCriticalSection> lock(m_portLock);
     if (mmal_port_disable(m_port) == MMAL_SUCCESS)
     {
       CLog::Log(LOGDEBUG, "CRendererMMAL::{} - disabled input port", __FUNCTION__);
@@ -245,6 +240,12 @@ CRendererMMAL::~CRendererMMAL()
       mmal_connection_destroy(m_connection);
     m_connection = nullptr;
   }
+
+  if (m_isp->is_enabled != 0)
+    mmal_component_disable(m_isp);
+
+  if (m_renderer->is_enabled != 0)
+    mmal_component_disable(m_renderer);
 
   if (m_portFormat)
   {
