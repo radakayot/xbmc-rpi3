@@ -156,7 +156,7 @@ void CVideoBufferMMAL::Release()
 {
   std::unique_lock<CCriticalSection> lock(m_critSection);
   m_refCount = m_header->priv->refcount;
-  if (--m_refCount <= 0)
+  if (m_refCount == 1)
   {
     if (m_picture.videoBuffer)
       m_picture.videoBuffer = nullptr;
@@ -182,7 +182,7 @@ void CVideoBufferMMAL::Release()
     if (m_pool)
       m_pool = nullptr;
   }
-  else
+  else if (m_refCount > 1)
   {
     mmal_buffer_header_release(m_header);
   }
