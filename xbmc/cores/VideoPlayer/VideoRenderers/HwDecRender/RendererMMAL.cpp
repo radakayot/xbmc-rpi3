@@ -600,7 +600,6 @@ bool CRendererMMAL::Flush(bool saveBuffers)
             m_buffers[i] = nullptr;
           }
         }
-        lock.unlock();
       }
     }
   }
