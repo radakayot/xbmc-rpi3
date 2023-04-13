@@ -200,7 +200,7 @@ CRendererMMAL::CRendererMMAL(KODI::WINDOWING::DMX::CWinSystemDmx* winSystem)
 CRendererMMAL::~CRendererMMAL()
 {
   m_state = MRS_DESTROYING;
-  
+
   Flush(false);
 
   if (m_isp->is_enabled != 0)
@@ -580,6 +580,7 @@ bool CRendererMMAL::Flush(bool saveBuffers)
           flush = true;
       }
     }
+    lock.unlock();
     if (state != MRS_FLUSHED && m_port->is_enabled != 0 && flush)
     {
       CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushing input port", __FUNCTION__);
@@ -587,15 +588,6 @@ bool CRendererMMAL::Flush(bool saveBuffers)
         CLog::Log(LOGERROR, "CRendererMMAL::{} - failed to flush input port", __FUNCTION__);
       else
         CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushed input port", __FUNCTION__);
-
-      for (int i = 0; i < MMAL_RENDERER_NUM_BUFFERS; i++)
-      {
-        if (m_buffers[i] != nullptr)
-        {
-          m_buffers[i]->Release();
-          m_buffers[i] = nullptr;
-        }
-      }
     }
   }
   m_state = MRS_FLUSHED;
