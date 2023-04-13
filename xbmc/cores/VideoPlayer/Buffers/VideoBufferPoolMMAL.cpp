@@ -483,10 +483,6 @@ void CVideoBufferPoolMMAL::Configure(MMALFormat portFormat,
       m_size = size;
     }
     InitializeBuffers(pBasePicture);
-    if (m_port->is_enabled == 0)
-      mmal_port_enable(m_port, NULL);
-    if (m_component->is_enabled == 0)
-      mmal_component_enable(m_component);
   }
 }
 
