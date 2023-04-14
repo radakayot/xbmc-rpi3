@@ -97,7 +97,7 @@ bool CVideoBufferMMAL::Alloc(uint32_t size)
     MMALPort port = (MMALPort)m_header->priv->payload_context;
     MMALPortPrivate priv = (MMALPortPrivate)port->priv;
     uint8_t* payload = priv->pf_payload_alloc(port, size);
-    if (!payload)
+    if (payload)
     {
       m_header->data = payload;
       m_header->alloc_size = size;
