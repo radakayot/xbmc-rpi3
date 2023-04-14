@@ -171,28 +171,19 @@ uint32_t CVideoBufferPoolMMAL::TranslateColorSpace(AVColorSpace space)
   }
 }
 
-int32_t CVideoBufferPoolMMAL::ProcessBufferCallback(MMALPool pool,
-                                                    MMALBufferHeader header,
-                                                    void* userdata)
-{
-  CVideoBufferPoolMMAL* bufferPool = static_cast<CVideoBufferPoolMMAL*>(userdata);
-  if (bufferPool && header->user_data)
-  {
-    CVideoBufferMMAL* buffer = static_cast<CVideoBufferMMAL*>(header->user_data);
-    if (buffer)
-    {
-      bufferPool->Return(buffer->GetId());
-      if (bufferPool->m_callback)
-        bufferPool->m_callback(bufferPool, buffer, bufferPool->m_userdata);
-      return MMAL_FALSE;
-    }
-  }
-  return MMAL_TRUE;
-}
-
 CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
 {
-  Dispose();
+  std::unique_lock<CCriticalSection> lock(m_poolLock);
+  for (auto buf : m_all)
+    buf->Free();
+
+  if (m_component)
+  {
+    if (mmal_component_release(m_component) != MMAL_SUCCESS)
+      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to release component", __FUNCTION__);
+    m_component = nullptr;
+  }
+
   if (m_portFormat)
   {
     mmal_format_free(m_portFormat);
@@ -200,156 +191,33 @@ CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
   }
 }
 
-void CVideoBufferPoolMMAL::Initialize()
-{
-  MMALStatus status = MMAL_SUCCESS;
-  status = mmal_component_create(MMAL_COMPONENT_DEFAULT_NULL_SINK, &m_component);
-  if (status == MMAL_SUCCESS)
-  {
-    if (m_component->is_enabled != 0)
-      status = mmal_component_disable(m_component);
-    if (m_component->input[0]->is_enabled != 0)
-      status = mmal_port_disable(m_component->input[0]);
-    if (status == MMAL_SUCCESS)
-    {
-      m_port = m_component->input[0];
-      m_port->userdata = (struct MMAL_PORT_USERDATA_T*)this;
-      m_port->buffer_num = 0;
-      m_port->buffer_size = 0;
-      m_port->format->encoding = MMAL_ENCODING_UNKNOWN;
-      m_port->format->encoding_variant = MMAL_ENCODING_UNKNOWN;
-      m_portFormat = mmal_format_alloc();
-      m_portFormat->type = MMAL_ES_TYPE_VIDEO;
-      mmal_port_parameter_set_uint32(m_port, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
-      mmal_port_parameter_set_boolean(m_port, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
-      if (mmal_port_format_commit(m_port) == MMAL_SUCCESS)
-      {
-        mmal_format_full_copy(m_portFormat, m_port->format);
-        m_portFormat->encoding = MMAL_ENCODING_UNKNOWN;
-        m_portFormat->encoding_variant = MMAL_ENCODING_UNKNOWN;
-        m_portFormat->extradata = nullptr;
-        m_portFormat->extradata_size = 0;
-      }
-      else
-        CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to commit port", __FUNCTION__);
-    }
-    else
-      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to disable ports", __FUNCTION__);
-  }
-  else
-    CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to create component", __FUNCTION__);
-}
-
-void CVideoBufferPoolMMAL::Dispose()
-{
-  if (m_port)
-  {
-    if (m_pool)
-    {
-      std::unique_lock<CCriticalSection> lock(m_poolLock);
-      mmal_pool_callback_set(m_pool, NULL, nullptr);
-
-      for (auto buf : m_all)
-        buf->Dispose();
-
-      if (m_pool->header)
-      {
-        vcos_free(m_pool->header);
-        m_pool->header = nullptr;
-      }
-
-      if (m_pool->queue)
-      {
-        mmal_queue_destroy(m_pool->queue);
-        m_pool->queue = nullptr;
-      }
-
-      vcos_free(m_pool);
-      m_pool = nullptr;
-    }
-    m_port->userdata = nullptr;
-    m_port = nullptr;
-  }
-}
-
 CVideoBuffer* CVideoBufferPoolMMAL::Get()
 {
   std::unique_lock<CCriticalSection> lock(m_poolLock);
-  if (m_free.empty())
-    return nullptr;
-
   CVideoBufferMMAL* buffer = nullptr;
-  int id = m_free.front();
-  m_free.pop_front();
-  m_used.push_back(id);
-
-  buffer = m_all[id];
-
-  if (buffer)
-    buffer->Acquire(GetPtr());
-
-  return buffer;
-}
-
-CVideoBuffer* CVideoBufferPoolMMAL::Get(bool rendered)
-{
-  if (rendered)
+  if (!m_free.empty())
   {
-    std::unique_lock<CCriticalSection> lock(m_poolLock);
-    if (m_ready.empty())
-      return nullptr;
-
-    CVideoBufferMMAL* buffer = nullptr;
-    int id = m_ready.front();
-    m_ready.pop_front();
+    int id = m_free.front();
+    m_free.pop_front();
     m_used.push_back(id);
-
     buffer = m_all[id];
-
-    if (buffer)
-      buffer->Acquire(GetPtr());
-    return buffer;
   }
   else
-    return Get();
-}
-
-bool CVideoBufferPoolMMAL::Move(AVFrame* frame, AVCodecID codecId, bool flushed, void* envPtr)
-{
-  std::unique_lock<CCriticalSection> lock(m_poolLock);
-  if (m_free.empty())
-    return false;
-
-  CVideoBufferMMAL* buffer = nullptr;
-  int id = m_free.front();
-  m_free.pop_front();
-  m_ready.push_back(id);
-
-  buffer = m_all[id];
-
-  if (buffer)
-    return buffer->UpdateBufferFromFrame(frame, codecId, flushed,
-                                         envPtr ? (AVZcEnvPtr)envPtr : nullptr);
-
-  return buffer != nullptr;
-}
-
-void CVideoBufferPoolMMAL::Put(CVideoBufferMMAL* buffer)
-{
-  std::unique_lock<CCriticalSection> lock(m_poolLock);
-  int id = buffer->GetId();
-  auto it = m_free.begin();
-  while (it != m_free.end())
   {
-    if (*it == id)
+    int id = m_all.size();
+    buffer = new CVideoBufferMMAL(m_port, id);
+
+    if (!buffer->Alloc(m_port->buffer_size))
     {
-      m_free.erase(it);
-      break;
+      delete buffer;
+      return nullptr;
     }
-    else
-      ++it;
+
+    m_all.push_back(buffer);
+    m_used.push_back(id);
   }
-  m_ready.push_back(id);
+  buffer->Acquire(GetPtr());
+  return buffer;
 }
 
 void CVideoBufferPoolMMAL::Return(int id)
@@ -367,51 +235,9 @@ void CVideoBufferPoolMMAL::Return(int id)
       ++it;
   }
   m_free.push_back(id);
-  if (m_bufferManager && m_used.empty())
-  {
-    (m_bufferManager->*m_disposeCallback)(this);
-    for (auto buffer : m_all)
-      delete buffer;
-    m_all.clear();
-  }
-}
-
-void CVideoBufferPoolMMAL::Flush()
-{
-  std::unique_lock<CCriticalSection> lock(m_poolLock);
-  if (m_ready.empty())
-    return;
-
-  while (!m_ready.empty())
-  {
-    int id = m_ready.front();
-    m_ready.pop_front();
-    m_free.push_back(id);
-    if (m_callback)
-      m_callback(this, m_all[id], m_userdata);
-  }
-}
-
-uint32_t CVideoBufferPoolMMAL::Length(bool rendered)
-{
-  std::unique_lock<CCriticalSection> lock(m_poolLock);
-  if (rendered)
-    return m_ready.size();
-  else
-    return m_free.size();
 }
 
 void CVideoBufferPoolMMAL::Configure(AVPixelFormat format, int size)
-{
-  m_portFormat->encoding = TranslateFormat(format);
-  m_portFormat->encoding_variant = 0;
-  Configure(m_portFormat, nullptr, 0, size);
-}
-
-void CVideoBufferPoolMMAL::Configure(MMALFormat portFormat,
-                                     VideoPicture* pBasePicture,
-                                     uint32_t count,
-                                     int32_t size)
 {
   if (m_component == nullptr)
   {
@@ -429,14 +255,14 @@ void CVideoBufferPoolMMAL::Configure(MMALFormat portFormat,
         m_port->userdata = (struct MMAL_PORT_USERDATA_T*)this;
         m_port->buffer_num = 0;
         m_port->buffer_size = size;
-        m_port->format->encoding = portFormat->encoding;
-        m_port->format->encoding_variant = portFormat->encoding_variant;
-        m_portFormat = mmal_format_alloc();
-        m_portFormat->type = MMAL_ES_TYPE_VIDEO;
+        m_port->format->encoding = MMAL_ENCODING_UNKNOWN;
+        m_port->format->encoding_variant = MMAL_ENCODING_UNKNOWN;
         mmal_port_parameter_set_uint32(m_port, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
         mmal_port_parameter_set_boolean(m_port, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
         if (mmal_port_format_commit(m_port) == MMAL_SUCCESS)
         {
+          m_portFormat = mmal_format_alloc();
+          m_portFormat->type = MMAL_ES_TYPE_VIDEO;
           m_portFormat->encoding = MMAL_ENCODING_UNKNOWN;
           m_portFormat->encoding_variant = MMAL_ENCODING_UNKNOWN;
           m_portFormat->extradata = nullptr;
@@ -452,81 +278,25 @@ void CVideoBufferPoolMMAL::Configure(MMALFormat portFormat,
     else
       CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to create component", __FUNCTION__);
   }
-  if (mmal_format_compare(m_portFormat, portFormat) != 0)
+  if (m_portFormat)
   {
-    if (mmal_format_full_copy(m_portFormat, portFormat) != MMAL_SUCCESS)
-    {
-      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to copy port format", __FUNCTION__);
-      return;
-    }
+    m_portFormat->encoding = TranslateFormat(format);
+    m_portFormat->encoding_variant = MMAL_ENCODING_UNKNOWN;
+    m_port->buffer_size = size;
   }
-
-  if (count > 0)
-  {
-    if (!m_pool)
-    {
-      if ((m_pool = mmal_port_pool_create(m_port, count, size)) == NULL)
-      {
-        CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to create pool", __FUNCTION__);
-        return;
-      }
-      m_size = size;
-      mmal_pool_callback_set(m_pool, CVideoBufferPoolMMAL::ProcessBufferCallback, (void*)this);
-    }
-    else if (m_size != size)
-    {
-      if (mmal_pool_resize(m_pool, count, size) != MMAL_SUCCESS)
-      {
-        CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to resize pool", __FUNCTION__);
-        return;
-      }
-      m_size = size;
-    }
-    InitializeBuffers(pBasePicture);
-  }
-}
-
-void CVideoBufferPoolMMAL::InitializeBuffers(VideoPicture* pBasePicture)
-{
-  std::unique_lock<CCriticalSection> lock(m_poolLock);
-  MMALBufferHeader header = nullptr;
-  while ((header = mmal_queue_get(m_pool->queue)) != NULL)
-  {
-    int index = m_all.size();
-    CVideoBufferMMAL* buffer = new CVideoBufferMMAL(index, header);
-    m_all.push_back(buffer);
-    m_free.push_back(index);
-
-    if (pBasePicture)
-      buffer->SetBasePicture(pBasePicture);
-
-    if (m_callback)
-      m_callback(this, buffer, m_userdata);
-  }
-  lock.unlock();
-
-  for (auto buffer : m_all)
-    buffer->SetPortFormat(m_portFormat);
-}
-
-void CVideoBufferPoolMMAL::SetReleaseCallback(IVideoBufferPoolMMALCallback callback, void* userdata)
-{
-  std::unique_lock<CCriticalSection> lock(m_poolLock);
-  m_callback = callback;
-  m_userdata = userdata;
 }
 
 bool CVideoBufferPoolMMAL::IsConfigured()
 {
   std::unique_lock<CCriticalSection> lock(m_poolLock);
-  return m_component != nullptr && m_size != -1 && m_pool != nullptr &&
-         m_portFormat->encoding != MMAL_ENCODING_UNKNOWN;
+  return m_component && m_portFormat && m_portFormat->encoding != MMAL_ENCODING_UNKNOWN;
 }
 
 bool CVideoBufferPoolMMAL::IsCompatible(AVPixelFormat format, int size)
 {
   std::unique_lock<CCriticalSection> lock(m_poolLock);
-  if (m_component != nullptr && m_portFormat->encoding != TranslateFormat(format) && size != m_size)
+  if (m_component != nullptr && m_portFormat && m_portFormat->encoding != TranslateFormat(format) &&
+      size != (int)m_port->buffer_size)
     return false;
 
   return true;
@@ -535,24 +305,4 @@ bool CVideoBufferPoolMMAL::IsCompatible(AVPixelFormat format, int size)
 void CVideoBufferPoolMMAL::Released(CVideoBufferManager& videoBufferManager)
 {
   videoBufferManager.RegisterPool(std::make_shared<CVideoBufferPoolMMAL>());
-}
-
-void CVideoBufferPoolMMAL::Discard(CVideoBufferManager* bm, ReadyToDispose cb)
-{
-  if (m_used.empty())
-  {
-    (bm->*cb)(this);
-  }
-  else
-  {
-    m_bufferManager = bm;
-    m_disposeCallback = cb;
-  }
-
-  if (m_component)
-  {
-    if (mmal_component_release(m_component) != MMAL_SUCCESS)
-      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to release component", __FUNCTION__);
-    m_component = nullptr;
-  }
 }

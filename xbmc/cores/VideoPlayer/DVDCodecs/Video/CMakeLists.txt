@@ -27,10 +27,10 @@ if(VAAPI_FOUND)
 endif()
 
 if(MMAL_FOUND)
-  list(APPEND SOURCES DVDVideoCodecMMAL.cpp
-                      DVDVideoCodecFFmpegMMAL.cpp)
-  list(APPEND HEADERS DVDVideoCodecMMAL.h
-                      DVDVideoCodecFFmpegMMAL.h)
+  list(APPEND SOURCES DVDVideoCodecMMAL.cpp)
+#                      DVDVideoCodecFFmpegMMAL.cpp)
+  list(APPEND HEADERS DVDVideoCodecMMAL.h)
+#                      DVDVideoCodecFFmpegMMAL.h)
 endif()
 
 if(APPLE)

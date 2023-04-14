@@ -48,25 +48,13 @@ public:
   ~CVideoBufferPoolMMAL() override;
 
   CVideoBuffer* Get() override;
-  CVideoBuffer* Get(bool rendered);
   void Return(int id) override;
 
-  void Put(CVideoBufferMMAL* buffer);
-  bool Move(AVFrame* frame, AVCodecID codecId, bool flushed, void* envPtr = nullptr);
-  void Flush();
-  uint32_t Length(bool rendered = false);
-
   void Configure(AVPixelFormat format, int size) override;
-  void Configure(MMALFormat portFormat, VideoPicture* pBasePicture, uint32_t count, int32_t size);
-
   bool IsConfigured() override;
   bool IsCompatible(AVPixelFormat format, int size) override;
 
   void Released(CVideoBufferManager& videoBufferManager) override;
-  void SetReleaseCallback(IVideoBufferPoolMMALCallback callback = nullptr,
-                          void* userdata = nullptr);
-  void Discard(CVideoBufferManager* bm, ReadyToDispose cb) override;
-  void Dispose();
 
 protected:
   void Initialize();
@@ -75,25 +63,13 @@ protected:
   std::vector<CVideoBufferMMAL*> m_all;
   std::deque<int> m_used;
   std::deque<int> m_free;
-  std::deque<int> m_ready;
-
-  CVideoBufferManager* m_bufferManager = nullptr;
-  ReadyToDispose m_disposeCallback{NULL};
 
   CCriticalSection m_poolLock;
 
 private:
-  static int32_t ProcessBufferCallback(MMALPool pool, MMALBufferHeader header, void* userdata);
-
   MMALComponent m_component{nullptr};
-  MMALFormat m_portFormat{nullptr};
   MMALPort m_port{nullptr};
-  MMALPool m_pool{nullptr};
-
-  int m_size{-1};
-
-  IVideoBufferPoolMMALCallback m_callback{NULL};
-  void* m_userdata{nullptr};
+  MMALFormat m_portFormat{nullptr};
 };
 
 } // namespace MMAL

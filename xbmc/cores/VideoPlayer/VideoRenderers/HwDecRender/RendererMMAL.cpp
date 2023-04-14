@@ -92,7 +92,7 @@ void CRendererMMAL::ProcessInputCallback(MMALPort port, MMALBufferHeader header)
     if (buffer)
     {
       std::unique_lock<CCriticalSection> lock(renderer->m_bufferLock);
-      buffer->SetRenderIndex(-1);
+      buffer->SetRendering(false);
       lock.unlock();
       renderer->m_bufferCondition.notify();
     }
@@ -571,7 +571,7 @@ bool CRendererMMAL::Flush(bool saveBuffers)
   {
     if (m_buffers[i] != nullptr)
     {
-      if (m_buffers[i]->GetRenderIndex() == -1)
+      if (m_buffers[i]->IsRendering() == false)
       {
         if (!saveBuffers)
         {
@@ -603,13 +603,13 @@ bool CRendererMMAL::SendBuffer(int index)
   std::unique_lock<CCriticalSection> lock(m_bufferLock);
   if (m_buffers[index] != nullptr)
   {
-    if (m_buffers[index]->GetRenderIndex() == index)
+    if (m_buffers[index]->IsRendering())
       return true;
 
     MMALBufferHeader header = m_buffers[index]->GetHeader();
     if ((header->flags & MMAL_BUFFER_HEADER_FLAG_DROPPED) == 0)
     {
-      m_buffers[index]->SetRenderIndex(index);
+      m_buffers[index]->SetRendering(true);
       if (m_state == MRS_FLUSHED && (header->flags & MMAL_BUFFER_HEADER_FLAG_DISCONTINUITY) == 0)
         header->flags |= MMAL_BUFFER_HEADER_FLAG_DISCONTINUITY;
       MMALStatus status = mmal_port_send_buffer(m_port, header);
@@ -624,8 +624,8 @@ bool CRendererMMAL::SendBuffer(int index)
           m_bufferCondition.wait(lock);
         return true;
       }
-      m_buffers[index]->SetRenderIndex(-1);
     }
+    m_buffers[index]->SetRendering(false);
   }
   return false;
 }
@@ -640,7 +640,7 @@ void CRendererMMAL::AcquireBuffer(CVideoBufferMMAL* buffer, int index)
   }
   buffer->Acquire(false);
   m_buffers[index] = buffer;
-  m_buffers[index]->SetRenderIndex(-1);
+  m_buffers[index]->SetRendering(false);
 }
 
 void CRendererMMAL::ReleaseBuffer(int index)
@@ -659,7 +659,7 @@ bool CRendererMMAL::NeedBuffer(int index)
   bool result = false;
   if (m_buffers[index] != nullptr)
   {
-    if (m_buffers[index]->GetRenderIndex() != index)
+    if (m_buffers[index]->IsRendering() == false)
     {
       m_buffers[index]->Release();
       m_buffers[index] = nullptr;

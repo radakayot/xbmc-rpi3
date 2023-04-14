@@ -52,7 +52,8 @@ typedef struct MMAL_PORT_PRIVATE_T
   MMALStatus (*pf_connect)(MMALPort port, MMALPort other_port);
 
   uint8_t* (*pf_payload_alloc)(MMALPort port, uint32_t payload_size);
-  void (*pf_payload_free)(MMALPort port, uint8_t* payload);
+  //void (*pf_payload_free)(MMALPort port, uint8_t* payload);
+  void (*pf_payload_free)(void* port, void* payload);
 
 } MMAL_PORT_PRIVATE_T, *MMALPortPrivate;
 
@@ -65,13 +66,29 @@ class CVideoBufferMMAL : public CVideoBuffer
 {
 public:
   CVideoBufferMMAL() = delete;
-  CVideoBufferMMAL(int id, MMALBufferHeader header);
+  CVideoBufferMMAL(MMALPort port, int id);
   ~CVideoBufferMMAL() override;
 
+  bool Alloc(uint32_t size);
+  void Free();
+
   void Acquire() override;
-  void Acquire(bool lockMemory);
+  void Acquire(bool withLock);
   void Acquire(std::shared_ptr<IVideoBufferPool> pool) override;
   void Release() override;
+
+  bool Lock();
+  void Unlock();
+
+  uint8_t* GetMemPtr() override;
+
+  bool IsRendering();
+  void SetRendering(bool rendering);
+
+  MMALBufferHeader GetHeader() { return m_header; };
+  int GetSize() { return m_header->alloc_size; };
+  MMALFormat GetPortFormat() { return m_portFormat; };
+  void SetPortFormat(MMALFormat format) { m_portFormat = format; };
 
   void SetDimensions(int width, int height);
   void SetDimensions(int width, int height, const int (&strides)[YuvImage::MAX_PLANES]) override;
@@ -82,43 +99,17 @@ public:
 
   void GetPlanes(uint8_t* (&planes)[YuvImage::MAX_PLANES]) override;
   void GetStrides(int (&strides)[YuvImage::MAX_PLANES]) override;
-  uint8_t* GetMemPtr() override;
-
-  const VideoPicture& GetPicture() const { return m_picture; }
-  void SetBasePicture(VideoPicture* pBasePicture);
-
-  int GetRenderIndex();
-  void SetRenderIndex(int renderIndex);
-
-  MMALBufferHeader GetHeader() { return m_header; };
-  int GetSize() { return m_header->alloc_size; };
-
-  MMALFormat GetPortFormat();
-  void SetPortFormat(MMALFormat portFormat);
-
-  bool UpdateBufferFromFrame(AVFrame* frame,
-                             AVCodecID codecId,
-                             bool flushed,
-                             AVZcEnvPtr envPtr = nullptr);
-
-  void ReleasePtr();
-  void Dispose();
-
-protected:
-  VideoPicture m_picture;
 
 private:
-  void UpdatePictureParams();
-
+  static void ProcessReleaseCallback(MMALBufferHeader header);
+  std::string m_name{"MMALBufferHeader "};
   MMALBufferHeader m_header{nullptr};
   MMALFormat m_portFormat{nullptr};
+
   bool m_locked{false};
-  bool m_disposing{false};
+  bool m_rendering{false};
 
-  int m_renderIndex{-1};
-  AVMMALZcRefPtr m_refPtr{nullptr};
-
-  CCriticalSection m_critSection;
+  CCriticalSection m_bufferLock;
 };
 
 } // namespace MMAL

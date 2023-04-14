@@ -38,13 +38,13 @@ enum MMALCodecState
   MCS_ERROR,
 };
 
-class CDVDVideoCodecMMAL : public CDVDVideoCodec
+class CDVDVideoCodecMMAL : public CDVDVideoCodec, public CThread
 {
 public:
   explicit CDVDVideoCodecMMAL(CProcessInfo& processInfo);
   ~CDVDVideoCodecMMAL() override;
 
-  static std::unique_ptr<CDVDVideoCodec> Create(CProcessInfo& processInfo);
+  static std::unique_ptr<CDVDVideoCodec> CreateCodec(CProcessInfo& processInfo);
   static void Register();
 
   bool Open(CDVDStreamInfo& hints, CDVDCodecOptions& options) override;
@@ -56,6 +56,9 @@ public:
   void SetCodecControl(int flags) override;
   void SetSpeed(int iSpeed) override;
   bool GetCodecStats(double& pts, int& droppedFrames, int& skippedPics) override;
+
+protected:
+  void Process() override;
 
 private:
   static void ProcessControlCallback(MMALPort port, MMALBufferHeader header);
@@ -79,13 +82,14 @@ private:
 
   MMALPort m_input{nullptr};
   MMALPool m_inputPool{nullptr};
-  CCriticalSection m_inputPortLock;
-  CCriticalSection m_inputSendLock;
+
+  CCriticalSection m_portLock;
 
   MMALPort m_output{nullptr};
   MMALFormat m_portFormat{nullptr};
-  CCriticalSection m_outputPortLock;
-  CCriticalSection m_outputSendLock;
+  
+  CCriticalSection m_sendLock;
+  CCriticalSection m_recvLock;
 
   int m_playbackSpeed{DVD_PLAYSPEED_NORMAL};
   int m_codecControlFlags{0};
@@ -110,8 +114,11 @@ private:
   uint32_t m_fpsScale{0};
 
   bool m_dropped{false};
+  std::deque<CVideoBufferMMAL*> m_buffers;
+
+  XbmcThreads::ConditionVariable m_bufferCondition;
 
   CDVDStreamInfo m_hints;
-  std::shared_ptr<CVideoBufferPoolMMAL> m_bufferPool;
+  std::shared_ptr<IVideoBufferPool> m_bufferPool;
 };
 } // namespace MMAL
