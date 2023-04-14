@@ -784,15 +784,15 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
       bool drop = (m_codecControlFlags & DVD_CODEC_CTRL_DROP) != 0;
 
       pVideoPicture->Reset();
-      //pVideoPicture->SetParams(buffer->GetPicture());
-
       pVideoPicture->iFlags |= m_codecControlFlags;
+
+      if ((pVideoPicture->iFlags & DVD_CODEC_CTRL_DRAIN) != 0)
+        pVideoPicture->iFlags &= ~DVD_CODEC_CTRL_DRAIN;
 
       if (drop && (pVideoPicture->iFlags & DVP_FLAG_DROPPED) == 0)
         pVideoPicture->iFlags |= DVP_FLAG_DROPPED;
 
-      if ((pVideoPicture->iFlags & DVD_CODEC_CTRL_DRAIN) != 0)
-        pVideoPicture->iFlags &= ~DVD_CODEC_CTRL_DRAIN;
+      buffer->SetPictureParams(pVideoPicture);
 
       pVideoPicture->videoBuffer = buffer;
       m_buffers.pop_front();

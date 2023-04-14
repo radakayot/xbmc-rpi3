@@ -100,6 +100,8 @@ public:
   void GetPlanes(uint8_t* (&planes)[YuvImage::MAX_PLANES]) override;
   void GetStrides(int (&strides)[YuvImage::MAX_PLANES]) override;
 
+  void SetPictureParams(VideoPicture* pVideoPicture);
+
 private:
   static void ProcessReleaseCallback(MMALBufferHeader header);
   std::string m_name{"MMALBufferHeader "};

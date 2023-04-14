@@ -14,6 +14,7 @@
 #include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h"
 #include "cores/VideoPlayer/DVDStreamInfo.h"
 #include "threads/Event.h"
+#include "threads/Thread.h"
 
 #include <atomic>
 #include <memory>
@@ -87,7 +88,7 @@ private:
 
   MMALPort m_output{nullptr};
   MMALFormat m_portFormat{nullptr};
-  
+
   CCriticalSection m_sendLock;
   CCriticalSection m_recvLock;
 

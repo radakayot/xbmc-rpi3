@@ -230,3 +230,29 @@ void CVideoBufferMMAL::SetDimensions(int width,
     m_header->type->video.pitch[i] = strides[i];
   }
 }
+
+void CVideoBufferMMAL::SetPictureParams(VideoPicture* pVideoPicture)
+{
+  if (m_header)
+  {
+    if (m_header->pts == MMAL_TIME_UNKNOWN)
+      pVideoPicture->pts = DVD_NOPTS_VALUE;
+    else
+      pVideoPicture->pts = static_cast<double>(m_header->pts) * DVD_TIME_BASE / AV_TIME_BASE;
+
+    if (m_header->dts == MMAL_TIME_UNKNOWN)
+      pVideoPicture->dts = DVD_NOPTS_VALUE;
+    else
+      pVideoPicture->dts = static_cast<double>(m_header->dts) * DVD_TIME_BASE / AV_TIME_BASE;
+
+    if ((m_header->flags & MMAL_BUFFER_HEADER_FLAG_DROPPED) != 0 &&
+        (pVideoPicture->iFlags & DVP_FLAG_DROPPED) == 0)
+      pVideoPicture->iFlags |= DVP_FLAG_DROPPED;
+
+    if ((m_header->flags & MMAL_BUFFER_HEADER_FLAG_SEEK) != 0)
+    {
+      m_header->flags &= ~MMAL_BUFFER_HEADER_FLAG_SEEK;
+      m_header->flags |= MMAL_BUFFER_HEADER_FLAG_DISCONTINUITY;
+    }
+  }
+}
