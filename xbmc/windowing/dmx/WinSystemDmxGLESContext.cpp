@@ -15,7 +15,7 @@
 #include "cores/RetroPlayer/process/dmx/RPProcessInfoDmx.h"
 #include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGLES.h"
 #include "cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.h"
-#include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpegMMAL.h"
+//#include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpegMMAL.h"
 #include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecMMAL.h"
 #include "cores/VideoPlayer/Process/dmx/ProcessInfoDmx.h"
 #include "cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMMAL.h"
@@ -55,7 +55,7 @@ bool CWinSystemDmxGLESContext::InitWindowSystem()
   RETRO::CRPProcessInfoDmx::RegisterRendererFactory(new RETRO::CRendererFactoryOpenGLES);
   CDVDFactoryCodec::ClearHWAccels();
   MMAL::CDVDVideoCodecMMAL::Register();
-  MMAL::CDVDVideoCodecFFmpegMMAL::Register();
+  //MMAL::CDVDVideoCodecFFmpegMMAL::Register();
   VIDEOPLAYER::CRendererFactory::ClearRenderer();
   CLinuxRendererGLES::Register();
   MMAL::CRendererMMAL::Register();
