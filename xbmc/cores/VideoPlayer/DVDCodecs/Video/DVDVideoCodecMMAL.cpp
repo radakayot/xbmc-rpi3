@@ -788,6 +788,33 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
 
       if ((pVideoPicture->iFlags & DVD_CODEC_CTRL_DRAIN) != 0)
         pVideoPicture->iFlags &= ~DVD_CODEC_CTRL_DRAIN;
+      pVideoPicture->hasDisplayMetadata = false;
+      pVideoPicture->hasLightMetadata = false;
+
+      pVideoPicture->pixelFormat = m_format;
+
+      pVideoPicture->iWidth = m_width;
+      pVideoPicture->iHeight = m_height;
+      pVideoPicture->iDisplayWidth = m_displayWidth;
+      pVideoPicture->iDisplayHeight = m_displayHeight;
+
+      pVideoPicture->color_range = m_hints.colorRange == AVCOL_RANGE_JPEG;
+      pVideoPicture->color_primaries = m_hints.colorPrimaries;
+      pVideoPicture->color_transfer = m_hints.colorTransferCharacteristic;
+      pVideoPicture->color_space = m_hints.colorSpace;
+      pVideoPicture->colorBits = m_hints.bitsperpixel;
+
+      if (m_hints.masteringMetadata)
+      {
+        pVideoPicture->displayMetadata = *m_hints.masteringMetadata.get();
+        pVideoPicture->hasDisplayMetadata = true;
+      }
+
+      if (m_hints.contentLightMetadata)
+      {
+        pVideoPicture->lightMetadata = *m_hints.contentLightMetadata.get();
+        pVideoPicture->hasLightMetadata = true;
+      }
 
       if (drop && (pVideoPicture->iFlags & DVP_FLAG_DROPPED) == 0)
         pVideoPicture->iFlags |= DVP_FLAG_DROPPED;
@@ -943,7 +970,7 @@ void CDVDVideoCodecMMAL::Process()
     else if (state == MCS_OPENED)
     {
       std::unique_lock<CCriticalSection> lock(m_recvLock);
-      if (m_bufferCondition.wait(m_recvLock, 30s))
+      if (m_bufferCondition.wait(m_recvLock, 50ms))
       {
         if (m_output->format->es->video.color_space == MMAL_COLOR_SPACE_UNKNOWN)
           m_output->format->es->video.color_space =
