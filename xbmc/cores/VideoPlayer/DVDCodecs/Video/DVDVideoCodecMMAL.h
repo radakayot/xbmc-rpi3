@@ -115,7 +115,6 @@ private:
   uint32_t m_fpsScale{0};
 
   bool m_dropped{false};
-  bool m_commit{false};
   std::deque<CVideoBufferMMAL*> m_buffers;
 
   XbmcThreads::ConditionVariable m_bufferCondition;
