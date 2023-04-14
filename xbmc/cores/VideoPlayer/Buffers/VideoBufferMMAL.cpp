@@ -45,9 +45,9 @@ void CVideoBufferMMAL::ProcessReleaseCallback(MMALBufferHeader header)
   }
 }
 
-CVideoBufferMMAL::CVideoBufferMMAL(MMALPort port, int id) : CVideoBuffer(id)
+CVideoBufferMMAL::CVideoBufferMMAL(MMALPort port, int id, AVPixelFormat format) : CVideoBuffer(id)
 {
-  m_pixFormat = AV_PIX_FMT_NONE;
+  m_pixFormat = format;
   m_pool = nullptr;
   m_name = m_name + std::to_string(id);
   uint32_t length = VCOS_ALIGN_UP(sizeof(*m_header), 8);

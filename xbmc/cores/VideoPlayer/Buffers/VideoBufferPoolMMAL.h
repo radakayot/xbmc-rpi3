@@ -70,6 +70,7 @@ private:
   MMALComponent m_component{nullptr};
   MMALPort m_port{nullptr};
   MMALFormat m_portFormat{nullptr};
+  AVPixelFormat m_format{AV_PIX_FMT_NONE};
 };
 
 } // namespace MMAL

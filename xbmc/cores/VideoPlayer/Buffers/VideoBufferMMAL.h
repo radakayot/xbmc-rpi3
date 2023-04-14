@@ -66,7 +66,7 @@ class CVideoBufferMMAL : public CVideoBuffer
 {
 public:
   CVideoBufferMMAL() = delete;
-  CVideoBufferMMAL(MMALPort port, int id);
+  CVideoBufferMMAL(MMALPort port, int id, AVPixelFormat format);
   ~CVideoBufferMMAL() override;
 
   bool Alloc(uint32_t size);

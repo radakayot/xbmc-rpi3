@@ -205,7 +205,7 @@ CVideoBuffer* CVideoBufferPoolMMAL::Get()
   else
   {
     int id = m_all.size();
-    buffer = new CVideoBufferMMAL(m_port, id);
+    buffer = new CVideoBufferMMAL(m_port, id, m_format);
 
     if (!buffer->Alloc(m_port->buffer_size))
     {
@@ -280,6 +280,7 @@ void CVideoBufferPoolMMAL::Configure(AVPixelFormat format, int size)
   }
   if (m_portFormat)
   {
+    m_format = format;
     m_portFormat->encoding = TranslateFormat(format);
     m_portFormat->encoding_variant = MMAL_ENCODING_UNKNOWN;
     m_port->buffer_size = size;
