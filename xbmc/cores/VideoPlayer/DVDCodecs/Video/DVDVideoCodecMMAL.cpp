@@ -943,7 +943,7 @@ void CDVDVideoCodecMMAL::Process()
     else if (state == MCS_OPENED)
     {
       std::unique_lock<CCriticalSection> lock(m_recvLock);
-      if (m_bufferCondition.wait(m_recvLock, 50ms))
+      if (m_bufferCondition.wait(m_recvLock, 30s))
       {
         if (m_output->format->es->video.color_space == MMAL_COLOR_SPACE_UNKNOWN)
           m_output->format->es->video.color_space =
