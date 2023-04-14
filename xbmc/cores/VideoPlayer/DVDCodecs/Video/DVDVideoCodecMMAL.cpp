@@ -138,6 +138,7 @@ void CDVDVideoCodecMMAL::ProcessOutputCallback(MMALPort port, MMALBufferHeader h
           codec->m_output->buffer_num = MMAL_CODEC_NUM_BUFFERS;
           codec->m_output->buffer_size = args->buffer_size_recommended;
           mmal_buffer_header_mem_unlock(header);
+          codec->m_commit = true;
           lock.unlock();
           codec->m_bufferCondition.notifyAll();
         }
@@ -970,7 +971,7 @@ void CDVDVideoCodecMMAL::Process()
     else if (state == MCS_OPENED)
     {
       std::unique_lock<CCriticalSection> lock(m_recvLock);
-      if (m_bufferCondition.wait(m_recvLock, 50ms))
+      if (m_bufferCondition.wait(m_recvLock, 50ms) || m_commit == true)
       {
         if (m_output->format->es->video.color_space == MMAL_COLOR_SPACE_UNKNOWN)
           m_output->format->es->video.color_space =
@@ -978,6 +979,7 @@ void CDVDVideoCodecMMAL::Process()
         std::unique_lock<CCriticalSection> lock(m_portLock);
         if (mmal_port_format_commit(m_output) == MMAL_SUCCESS)
         {
+          m_commit = false;
           if (mmal_format_full_copy(m_portFormat, m_output->format) == MMAL_SUCCESS)
             UpdateProcessInfo();
         }
