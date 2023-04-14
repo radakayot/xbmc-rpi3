@@ -255,7 +255,7 @@ void CVideoBufferPoolMMAL::Configure(AVPixelFormat format, int size)
         m_port->userdata = (struct MMAL_PORT_USERDATA_T*)this;
         m_port->buffer_num = 0;
         m_port->buffer_size = size;
-        m_port->format->encoding = MMAL_ENCODING_UNKNOWN;
+        m_port->format->encoding = TranslateFormat(format);
         m_port->format->encoding_variant = MMAL_ENCODING_UNKNOWN;
         mmal_port_parameter_set_uint32(m_port, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
         mmal_port_parameter_set_boolean(m_port, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);

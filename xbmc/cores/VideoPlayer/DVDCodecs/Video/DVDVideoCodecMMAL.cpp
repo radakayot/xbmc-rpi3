@@ -970,13 +970,12 @@ void CDVDVideoCodecMMAL::Process()
     }
     else if (state == MCS_OPENED)
     {
-      std::unique_lock<CCriticalSection> lock(m_recvLock);
       if (m_bufferCondition.wait(m_recvLock, 50ms) || m_commit == true)
       {
         if (m_output->format->es->video.color_space == MMAL_COLOR_SPACE_UNKNOWN)
           m_output->format->es->video.color_space =
               CVideoBufferPoolMMAL::TranslateColorSpace(m_hints.colorSpace);
-        std::unique_lock<CCriticalSection> lock(m_portLock);
+        //std::unique_lock<CCriticalSection> lock(m_portLock);
         if (mmal_port_format_commit(m_output) == MMAL_SUCCESS)
         {
           m_commit = false;
