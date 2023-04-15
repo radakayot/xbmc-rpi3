@@ -960,12 +960,15 @@ void CDVDVideoCodecMMAL::Process()
       {
         if ((buffer = dynamic_cast<CVideoBufferMMAL*>(m_bufferPool->Get())) != NULL)
         {
-          if (mmal_port_send_buffer(m_output, buffer->GetHeader()) == MMAL_SUCCESS)
+          if (mmal_port_send_buffer(m_output, buffer->GetHeader()) != MMAL_SUCCESS)
           {
+            buffer->Release();
+            buffer = nullptr;
           }
         }
       }
-      m_bufferCondition.wait(lock, 50ms);
+      if (!buffer)
+        m_bufferCondition.wait(lock, 40ms);
     }
     else if (state == MCS_OPENED)
     {
@@ -988,7 +991,7 @@ void CDVDVideoCodecMMAL::Process()
       }
     }
     else
-      KODI::TIME::Sleep(10ms);
+      KODI::TIME::Sleep(40ms);
     state = m_state;
   }
 }
