@@ -511,8 +511,7 @@ void CRendererMMAL::AddVideoPicture(const VideoPicture& picture, int index)
   CVideoBufferMMAL* buffer = nullptr;
   if ((buffer = dynamic_cast<CVideoBufferMMAL*>(picture.videoBuffer)) != NULL)
   {
-    MMALBufferHeader header = buffer->GetHeader();
-
+    buffer->ReadPicture(picture);
     AcquireBuffer(buffer, index);
   }
 }

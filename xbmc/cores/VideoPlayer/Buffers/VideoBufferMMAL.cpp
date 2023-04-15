@@ -122,6 +122,7 @@ void CVideoBufferMMAL::Free()
     m_header->priv->payload_context = nullptr;
     m_header->priv->pf_payload_free = NULL;
     m_header->priv->payload_size = 0;
+    m_header->priv->owner = nullptr;
   }
 }
 
@@ -237,7 +238,27 @@ void CVideoBufferMMAL::SetDimensions(int width,
   }
 }
 
-void CVideoBufferMMAL::SetPictureParams(VideoPicture* pVideoPicture)
+void CVideoBufferMMAL::ReadPicture(const VideoPicture& videoPicture)
+{
+  if (m_header)
+  {
+    if (videoPicture.pts == DVD_NOPTS_VALUE)
+      m_header->pts = MMAL_TIME_UNKNOWN;
+    else
+      m_header->pts = static_cast<int64_t>(videoPicture.pts / DVD_TIME_BASE * AV_TIME_BASE);
+
+    if (videoPicture.dts == DVD_NOPTS_VALUE)
+      m_header->dts = MMAL_TIME_UNKNOWN;
+    else
+      m_header->dts = static_cast<int64_t>(videoPicture.dts / DVD_TIME_BASE * AV_TIME_BASE);
+
+    if ((m_header->flags & MMAL_BUFFER_HEADER_FLAG_DROPPED) == 0 &&
+        (videoPicture.iFlags & DVP_FLAG_DROPPED) != 0)
+      m_header->flags |= MMAL_BUFFER_HEADER_FLAG_DROPPED;
+  }
+}
+
+void CVideoBufferMMAL::WritePicture(VideoPicture* pVideoPicture)
 {
   if (m_header)
   {

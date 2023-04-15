@@ -290,7 +290,7 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
 
   if (m_bufferPool)
   {
-    //m_bufferPool->Dispose();
+    m_bufferPool.reset();
     m_bufferPool = nullptr;
   }
 
@@ -349,38 +349,6 @@ void CDVDVideoCodecMMAL::UpdateProcessInfo()
   {
     m_displayWidth = m_width;
     m_displayHeight = m_height;
-  }
-
-  VideoPicture picture{};
-
-  picture.Reset();
-
-  picture.hasDisplayMetadata = false;
-  picture.hasLightMetadata = false;
-
-  picture.pixelFormat = m_format;
-
-  picture.iWidth = m_width;
-  picture.iHeight = m_height;
-  picture.iDisplayWidth = m_displayWidth;
-  picture.iDisplayHeight = m_displayHeight;
-
-  picture.color_range = m_hints.colorRange == AVCOL_RANGE_JPEG;
-  picture.color_primaries = m_hints.colorPrimaries;
-  picture.color_transfer = m_hints.colorTransferCharacteristic;
-  picture.color_space = m_hints.colorSpace;
-  picture.colorBits = m_hints.bitsperpixel;
-
-  if (m_hints.masteringMetadata)
-  {
-    picture.displayMetadata = *m_hints.masteringMetadata.get();
-    picture.hasDisplayMetadata = true;
-  }
-
-  if (m_hints.contentLightMetadata)
-  {
-    picture.lightMetadata = *m_hints.contentLightMetadata.get();
-    picture.hasLightMetadata = true;
   }
 
   m_bufferPool->Configure(m_format, m_output->buffer_size);
@@ -819,7 +787,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
       if (drop && (pVideoPicture->iFlags & DVP_FLAG_DROPPED) == 0)
         pVideoPicture->iFlags |= DVP_FLAG_DROPPED;
 
-      buffer->SetPictureParams(pVideoPicture);
+      buffer->WritePicture(pVideoPicture);
 
       pVideoPicture->videoBuffer = buffer;
       m_buffers.pop_front();
@@ -848,7 +816,7 @@ bool CDVDVideoCodecMMAL::Close(bool force)
     m_state = MCS_CLOSED;
     if (m_input->is_enabled != 0)
     {
-      std::unique_lock<CCriticalSection> iplock(m_portLock);
+      std::unique_lock<CCriticalSection> lock(m_portLock);
       if (mmal_port_disable(m_input) == MMAL_SUCCESS)
         m_input->userdata = nullptr;
       else
@@ -867,7 +835,7 @@ bool CDVDVideoCodecMMAL::Close(bool force)
 
     if (m_output->is_enabled != 0)
     {
-      std::unique_lock<CCriticalSection> oplock(m_portLock);
+      std::unique_lock<CCriticalSection> lock(m_portLock);
       if (mmal_port_disable(m_output) == MMAL_SUCCESS)
         m_output->userdata = nullptr;
       else
