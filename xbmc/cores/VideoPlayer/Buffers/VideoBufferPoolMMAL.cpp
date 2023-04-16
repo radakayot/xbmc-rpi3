@@ -204,7 +204,7 @@ void CVideoBufferPoolMMAL::Release()
     m_all[i] = nullptr;
     delete buffer;
   }
-  for (i = 0; i < m_all.size(); i++)
+  for (i = 0; i < (int)m_all.size(); i++)
   {
     if (m_all[i] != nullptr)
     {
