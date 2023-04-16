@@ -262,8 +262,10 @@ void CVideoBufferPoolMMAL::Release()
     {
       buffer = m_all[i];
       if (!buffer->IsRendering())
+      {
         m_all[i] = nullptr;
-      buffer->Free();
+        buffer->Free();
+      }
     }
   }
 
