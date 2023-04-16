@@ -153,9 +153,8 @@ void CDVDVideoCodecMMAL::ProcessOutputCallback(MMALPort port, MMALBufferHeader h
         (buffer = static_cast<CVideoBufferMMAL*>(header->user_data)) != NULL)
     {
       MMALCodecState state = codec->m_state;
-      if (header->cmd == 0 &&
-          (state == MCS_DECODING || state == MCS_OPENED || state == MCS_FLUSHED ||
-           state == MCS_FLUSHING || state == MCS_CLOSING))
+      if (header->cmd == 0 && (state == MCS_DECODING || state == MCS_FLUSHED ||
+                               state == MCS_FLUSHING || state == MCS_CLOSING))
       {
         if ((header->flags & MMAL_BUFFER_HEADER_FLAG_EOS) == 0)
         {
@@ -164,12 +163,11 @@ void CDVDVideoCodecMMAL::ProcessOutputCallback(MMALPort port, MMALBufferHeader h
           codec->m_buffers.push_back(buffer);
           lock.unlock();
           codec->m_bufferCondition.notifyAll();
-          //codec->m_ptsCurrent = buffer->GetHeader()->pts;
-          //codec->m_bufferPool->Put(buffer);
         }
         else if (state == MCS_CLOSING)
         {
           buffer->Release();
+          codec->m_bStop = true;
           //codec->Close();
         }
         else
@@ -195,12 +193,10 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
   status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_DECODER, &m_component);
   if (status == MMAL_SUCCESS)
   {
-    //m_bufferPool = std::make_shared<CVideoBufferPoolMMAL>();
     if (m_component->is_enabled != 0)
       mmal_component_disable(m_component);
 
-    int* priority = (int*)((uint8_t*)m_component->priv + 28);
-    *priority = VCOS_THREAD_PRI_ABOVE_NORMAL;
+    *(int*)((uint8_t*)m_component->priv + 28) = VCOS_THREAD_PRI_ABOVE_NORMAL;
 
     m_component->control->userdata = (MMALPortUserData)this;
     status = mmal_port_enable(m_component->control, CDVDVideoCodecMMAL::ProcessControlCallback);
@@ -305,13 +301,7 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
     else
       CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - failed to disable control port", __FUNCTION__);
   }
-  /*
-  if (m_bufferPool)
-  {
-    std::static_pointer_cast<CVideoBufferPoolMMAL>(m_bufferPool)->Release();
-    m_bufferPool = nullptr;
-  }
-*/
+
   if (m_portFormat)
   {
     mmal_format_free(m_portFormat);
@@ -382,8 +372,6 @@ void CDVDVideoCodecMMAL::UpdateProcessInfo()
   m_processInfo.SetVideoStereoMode("mono");
   m_processInfo.SetVideoDAR(m_aspect);
   m_processInfo.SetVideoFps(m_fps);
-
-  m_state = MCS_DECODING;
 }
 
 bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
@@ -768,6 +756,8 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
     {
       CVideoBufferMMAL* buffer = m_buffers.front();
       bool drop = (m_codecControlFlags & DVD_CODEC_CTRL_DROP) != 0;
+      m_buffers.pop_front();
+      lock.unlock();
 
       pVideoPicture->Reset();
       pVideoPicture->iFlags |= m_codecControlFlags;
@@ -808,7 +798,6 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
       buffer->WritePicture(pVideoPicture);
 
       pVideoPicture->videoBuffer = buffer;
-      m_buffers.pop_front();
       result = VC_PICTURE;
     }
     else if (state != MCS_CLOSING && receive)
@@ -936,6 +925,7 @@ void CDVDVideoCodecMMAL::Process()
       {
         UpdateProcessInfo();
         bufferPool->Configure(m_format, m_output->buffer_size);
+        m_state = state = MCS_DECODING;
       }
     }
     else
@@ -956,14 +946,20 @@ void CDVDVideoCodecMMAL::Process()
           if (mmal_port_send_buffer(m_output, buffer->GetHeader()) != MMAL_SUCCESS)
           {
             buffer->Release();
-            buffer = nullptr;
+            m_bufferCondition.wait(lock, 40ms);
           }
+        }
+        else
+        {
+          lock.unlock();
+          KODI::TIME::Sleep(10ms);
         }
       }
       else
-        buffer = nullptr;
-      if (!buffer)
-        m_bufferCondition.wait(lock, 40ms);
+      {
+        lock.unlock();
+        KODI::TIME::Sleep(10ms);
+      }
     }
     else
       KODI::TIME::Sleep(40ms);
