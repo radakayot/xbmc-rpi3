@@ -171,10 +171,55 @@ uint32_t CVideoBufferPoolMMAL::TranslateColorSpace(AVColorSpace space)
   }
 }
 
+MMALComponent CVideoBufferPoolMMAL::m_component{nullptr};
+
+CVideoBufferPoolMMAL::CVideoBufferPoolMMAL()
+{
+  std::unique_lock<CCriticalSection> lock(m_poolLock);
+  if (m_component == nullptr)
+  {
+    MMALStatus status = MMAL_SUCCESS;
+    status = mmal_component_create(MMAL_COMPONENT_DEFAULT_NULL_SINK, &m_component);
+    if (status == MMAL_SUCCESS)
+    {
+      if (m_component->is_enabled != 0)
+        status = mmal_component_disable(m_component);
+      if (m_component->input[0]->is_enabled != 0)
+        status = mmal_port_disable(m_component->input[0]);
+      if (status == MMAL_SUCCESS)
+      {
+        m_port = m_component->input[0];
+        m_port->buffer_num = 0;
+        m_port->buffer_size = 0;
+        m_port->format->type = MMAL_ES_TYPE_VIDEO;
+        m_port->format->encoding = MMAL_ENCODING_UNKNOWN;
+        m_port->format->encoding_variant = MMAL_ENCODING_UNKNOWN;
+        mmal_port_parameter_set_uint32(m_port, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
+        mmal_port_parameter_set_boolean(m_port, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
+        if (mmal_port_format_commit(m_port) == MMAL_SUCCESS)
+        {
+        }
+        else
+          CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to commit port", __FUNCTION__);
+      }
+      else
+        CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to disable ports", __FUNCTION__);
+    }
+    else
+      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to create component", __FUNCTION__);
+  }
+  else
+  {
+    m_port = m_component->input[0];
+    m_port->buffer_size = 0;
+  }
+}
+
 CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
 {
   Release();
 
+  std::unique_lock<CCriticalSection> lock(m_poolLock);
   for (auto buffer : m_all)
   {
     if (buffer)
@@ -184,6 +229,17 @@ CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
     }
   }
   m_all.clear();
+
+  /*
+  if (m_component)
+  {
+    if (m_port)
+      m_port = nullptr;
+    if (mmal_component_release(m_component) != MMAL_SUCCESS)
+      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to release component", __FUNCTION__);
+    m_component = nullptr;
+  }
+  */
 }
 
 void CVideoBufferPoolMMAL::Release()
@@ -199,26 +255,16 @@ void CVideoBufferPoolMMAL::Release()
     m_all[i] = nullptr;
     delete buffer;
   }
+
   for (i = 0; i < (int)m_all.size(); i++)
   {
-    if (m_all[i] != nullptr)
+    if (m_all[i])
     {
       buffer = m_all[i];
       if (!buffer->IsRendering())
-      {
         m_all[i] = nullptr;
-        buffer->Free();
-      }
+      buffer->Free();
     }
-  }
-
-  if (m_component)
-  {
-    if (m_port)
-      m_port = nullptr;
-    if (mmal_component_release(m_component) != MMAL_SUCCESS)
-      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to release component", __FUNCTION__);
-    m_component = nullptr;
   }
 
   if (m_portFormat)
@@ -276,65 +322,33 @@ void CVideoBufferPoolMMAL::Return(int id)
 
 void CVideoBufferPoolMMAL::Configure(AVPixelFormat format, int size)
 {
-  if (m_component == nullptr)
+  if (!m_portFormat)
   {
-    MMALStatus status = MMAL_SUCCESS;
-    status = mmal_component_create(MMAL_COMPONENT_DEFAULT_NULL_SINK, &m_component);
-    if (status == MMAL_SUCCESS)
-    {
-      if (m_component->is_enabled != 0)
-        status = mmal_component_disable(m_component);
-      if (m_component->input[0]->is_enabled != 0)
-        status = mmal_port_disable(m_component->input[0]);
-      if (status == MMAL_SUCCESS)
-      {
-        m_port = m_component->input[0];
-        m_port->userdata = (struct MMAL_PORT_USERDATA_T*)this;
-        m_port->buffer_num = 0;
-        m_port->buffer_size = size;
-        m_port->format->type = MMAL_ES_TYPE_VIDEO;
-        m_port->format->encoding = MMAL_ENCODING_UNKNOWN;
-        m_port->format->encoding_variant = MMAL_ENCODING_UNKNOWN;
-        mmal_port_parameter_set_uint32(m_port, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
-        mmal_port_parameter_set_boolean(m_port, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
-        if (mmal_port_format_commit(m_port) == MMAL_SUCCESS)
-        {
-          m_portFormat = mmal_format_alloc();
-          m_portFormat->type = MMAL_ES_TYPE_VIDEO;
-          m_portFormat->encoding = MMAL_ENCODING_UNKNOWN;
-          m_portFormat->encoding_variant = MMAL_ENCODING_UNKNOWN;
-          m_portFormat->extradata = nullptr;
-          m_portFormat->extradata_size = 0;
-          mmal_format_full_copy(m_portFormat, m_port->format);
-        }
-        else
-          CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to commit port", __FUNCTION__);
-      }
-      else
-        CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to disable ports", __FUNCTION__);
-    }
-    else
-      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to create component", __FUNCTION__);
-  }
-  if (m_portFormat)
-  {
-    m_format = format;
-    m_portFormat->encoding = TranslateFormat(format);
+    m_portFormat = mmal_format_alloc();
+    m_portFormat->type = MMAL_ES_TYPE_VIDEO;
+    m_portFormat->encoding = MMAL_ENCODING_UNKNOWN;
     m_portFormat->encoding_variant = MMAL_ENCODING_UNKNOWN;
-    m_port->buffer_size = size;
+    m_portFormat->extradata = nullptr;
+    m_portFormat->extradata_size = 0;
+    mmal_format_full_copy(m_portFormat, m_port->format);
   }
+
+  m_format = format;
+  m_portFormat->encoding = TranslateFormat(format);
+  m_portFormat->encoding_variant = MMAL_ENCODING_UNKNOWN;
+  m_port->buffer_size = size;
 }
 
 bool CVideoBufferPoolMMAL::IsConfigured()
 {
   std::unique_lock<CCriticalSection> lock(m_poolLock);
-  return m_component && m_portFormat && m_portFormat->encoding != MMAL_ENCODING_UNKNOWN;
+  return m_port && m_portFormat && m_portFormat->encoding != MMAL_ENCODING_UNKNOWN;
 }
 
 bool CVideoBufferPoolMMAL::IsCompatible(AVPixelFormat format, int size)
 {
   std::unique_lock<CCriticalSection> lock(m_poolLock);
-  if (m_component && m_portFormat && m_portFormat->encoding == TranslateFormat(format) &&
+  if (m_port && m_portFormat && m_portFormat->encoding == TranslateFormat(format) &&
       size == (int)m_port->buffer_size)
     return true;
 

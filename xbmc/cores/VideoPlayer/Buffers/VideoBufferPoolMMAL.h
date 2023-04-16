@@ -44,7 +44,7 @@ public:
   static uint32_t TranslateColorSpace(AVColorSpace space);
   static AVPixelFormat TranslatePortFormat(uint32_t format);
 
-  CVideoBufferPoolMMAL() = default;
+  CVideoBufferPoolMMAL();
   ~CVideoBufferPoolMMAL() override;
 
   CVideoBuffer* Get() override;
@@ -68,7 +68,7 @@ protected:
   CCriticalSection m_poolLock;
 
 private:
-  MMALComponent m_component{nullptr};
+  static MMALComponent m_component;
   MMALPort m_port{nullptr};
   MMALFormat m_portFormat{nullptr};
   AVPixelFormat m_format{AV_PIX_FMT_NONE};
