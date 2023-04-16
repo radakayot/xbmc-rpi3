@@ -48,6 +48,7 @@ public:
   ~CVideoBufferPoolMMAL() override;
 
   CVideoBuffer* Get() override;
+  CVideoBuffer* Get(int size);
   void Return(int id) override;
 
   void Configure(AVPixelFormat format, int size) override;

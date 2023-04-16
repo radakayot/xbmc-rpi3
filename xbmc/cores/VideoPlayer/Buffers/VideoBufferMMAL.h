@@ -70,6 +70,7 @@ public:
   ~CVideoBufferMMAL() override;
 
   bool Alloc(uint32_t size);
+  bool Realloc(uint32_t size);
   void Free();
 
   void Acquire() override;

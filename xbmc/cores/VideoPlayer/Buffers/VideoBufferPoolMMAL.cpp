@@ -230,16 +230,10 @@ CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
   }
   m_all.clear();
 
-  /*
-  if (m_component)
+  if (m_port)
   {
-    if (m_port)
-      m_port = nullptr;
-    if (mmal_component_release(m_component) != MMAL_SUCCESS)
-      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to release component", __FUNCTION__);
-    m_component = nullptr;
+    m_port = nullptr;
   }
-  */
 }
 
 void CVideoBufferPoolMMAL::Release()
@@ -278,26 +272,35 @@ void CVideoBufferPoolMMAL::Release()
 
 CVideoBuffer* CVideoBufferPoolMMAL::Get()
 {
+  return Get(m_port->buffer_size);
+}
+
+CVideoBuffer* CVideoBufferPoolMMAL::Get(int size)
+{
   std::unique_lock<CCriticalSection> lock(m_poolLock);
   CVideoBufferMMAL* buffer = nullptr;
+  int id = -1;
   if (!m_free.empty())
   {
-    int id = m_free.front();
+    id = m_free.front();
     m_free.pop_front();
-    m_used.push_back(id);
     buffer = m_all[id];
-  }
-  else
-  {
-    int id = m_all.size();
-    buffer = new CVideoBufferMMAL(m_port, id, m_format);
-
-    if (!buffer->Alloc(m_port->buffer_size))
+    if (!buffer->Realloc(size))
     {
       delete buffer;
       return nullptr;
     }
-
+    m_used.push_back(id);
+  }
+  else
+  {
+    id = m_all.size();
+    buffer = new CVideoBufferMMAL(m_port, id, m_format);
+    if (!buffer->Alloc(size))
+    {
+      delete buffer;
+      return nullptr;
+    }
     m_all.push_back(buffer);
     m_used.push_back(id);
   }
@@ -324,6 +327,7 @@ void CVideoBufferPoolMMAL::Return(int id)
 
 void CVideoBufferPoolMMAL::Configure(AVPixelFormat format, int size)
 {
+  std::unique_lock<CCriticalSection> lock(m_poolLock);
   if (!m_portFormat)
   {
     m_portFormat = mmal_format_alloc();

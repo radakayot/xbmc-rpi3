@@ -112,6 +112,38 @@ bool CVideoBufferMMAL::Alloc(uint32_t size)
   return false;
 }
 
+bool CVideoBufferMMAL::Realloc(uint32_t size)
+{
+  if (m_header)
+  {
+    if (m_header->priv->payload_size == size)
+      return true;
+
+    MMALPort port = (MMALPort)m_header->priv->payload_context;
+    MMALPortPrivate priv = (MMALPortPrivate)port->priv;
+
+    m_header->priv->pf_payload_free(m_header->priv->payload_context, m_header->priv->payload);
+    uint8_t* payload = priv->pf_payload_alloc(port, size);
+    if (payload)
+    {
+      m_header->data = payload;
+      m_header->alloc_size = size;
+      m_header->priv->payload = payload;
+      m_header->priv->payload_size = size;
+      return true;
+    }
+    else
+    {
+      m_header->data = nullptr;
+      m_header->alloc_size = 0;
+      m_header->priv->payload = nullptr;
+      m_header->priv->pf_payload_free = NULL;
+      m_header->priv->payload_size = 0;
+    }
+  }
+  return false;
+}
+
 void CVideoBufferMMAL::Free()
 {
   if (m_header && m_header->priv)
@@ -124,6 +156,7 @@ void CVideoBufferMMAL::Free()
     m_header->priv->payload_context = nullptr;
     m_header->priv->pf_payload_free = NULL;
     m_header->priv->payload_size = 0;
+    m_header->priv->owner = nullptr;
   }
 }
 
