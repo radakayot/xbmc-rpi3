@@ -252,15 +252,19 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
 
 CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
 {
+  m_bStop = true;
+  if (IsRunning())
+  {
+    if (!Join(100ms))
+    {
+      //Kill thread?
+    }
+  }
+
   if (m_state != MCS_INITIALIZED)
   {
     if (m_state != MCS_CLOSED)
       Close(true);
-  }
-  m_bStop = true;
-  if (!IsRunning() || !Join(500ms))
-  {
-    
   }
 
   if (m_input)
@@ -918,7 +922,7 @@ void CDVDVideoCodecMMAL::Process()
   MMALCodecState state = m_state;
   CVideoBufferMMAL* buffer = nullptr;
   int rendered = 0;
-  while (!m_bStop)
+  while (!m_bStop && state != MCS_CLOSED && state != MCS_UNINITIALIZED)
   {
     if (state == MCS_DECODING)
     {
