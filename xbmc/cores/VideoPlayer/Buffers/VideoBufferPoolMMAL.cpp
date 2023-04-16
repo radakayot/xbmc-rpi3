@@ -250,16 +250,15 @@ void CVideoBufferPoolMMAL::Release()
     delete buffer;
   }
 
-  for (i = 0; i < (int)m_all.size(); i++)
+  while (!m_used.empty())
   {
-    if (m_all[i])
+    i = m_used.front();
+    buffer = m_all[i];
+    if (!buffer->IsRendering())
     {
-      buffer = m_all[i];
-      if (!buffer->IsRendering())
-      {
-        m_all[i] = nullptr;
-        buffer->Free();
-      }
+      m_used.pop_front();
+      m_all[i] = nullptr;
+      buffer->Free();
     }
   }
 
