@@ -254,7 +254,7 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
 {
   m_bStop = true;
 
-  if (m_state != MCS_INITIALIZED)
+  if (m_state != MCS_INITIALIZED && m_state != MCS_FLUSHED)
     m_state = MCS_CLOSING;
 
   if (IsRunning())
@@ -264,6 +264,8 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
   }
   else
     Close();
+
+  m_state = MCS_CLOSED;
 
   if (m_input)
   {
