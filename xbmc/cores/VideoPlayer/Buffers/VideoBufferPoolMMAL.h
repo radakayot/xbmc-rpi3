@@ -53,6 +53,7 @@ public:
   void Configure(AVPixelFormat format, int size) override;
   bool IsConfigured() override;
   bool IsCompatible(AVPixelFormat format, int size) override;
+  void Release();
 
   void Released(CVideoBufferManager& videoBufferManager) override;
 

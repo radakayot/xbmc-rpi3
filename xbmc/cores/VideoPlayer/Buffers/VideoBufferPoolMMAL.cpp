@@ -173,9 +173,9 @@ uint32_t CVideoBufferPoolMMAL::TranslateColorSpace(AVColorSpace space)
 
 CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
 {
-  std::unique_lock<CCriticalSection> lock(m_poolLock);
   for (auto buf : m_all)
-    buf->Free();
+    if (buf)
+      buf->Free();
 
   if (m_component)
   {
@@ -188,6 +188,30 @@ CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
   {
     mmal_format_free(m_portFormat);
     m_portFormat = nullptr;
+  }
+}
+
+void CVideoBufferPoolMMAL::Release()
+{
+  std::unique_lock<CCriticalSection> lock(m_poolLock);
+  CVideoBufferMMAL* buffer = nullptr;
+  int i = 0;
+  while (!m_free.empty())
+  {
+    i = m_free.front();
+    m_free.pop_front();
+    buffer = m_all[i];
+    m_all[i] = nullptr;
+    delete buffer;
+  }
+  for (i = 0; i < m_all.size(); i++)
+  {
+    if (m_all[i] != nullptr)
+    {
+      buffer = m_all[i];
+      if (!buffer->IsRendering())
+        buffer->Free();
+    }
   }
 }
 

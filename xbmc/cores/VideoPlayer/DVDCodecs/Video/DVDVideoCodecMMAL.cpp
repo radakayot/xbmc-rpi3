@@ -290,7 +290,7 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
 
   if (m_bufferPool)
   {
-    m_bufferPool.reset();
+    std::static_pointer_cast<CVideoBufferPoolMMAL>(m_bufferPool)->Release();
     m_bufferPool = nullptr;
   }
 
