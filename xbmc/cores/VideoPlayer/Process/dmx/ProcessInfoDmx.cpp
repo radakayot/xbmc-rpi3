@@ -24,7 +24,7 @@ void CProcessInfoDmx::Register()
 
 CProcessInfoDmx::CProcessInfoDmx()
 {
-  m_videoBufferManager.RegisterPool(std::make_shared<MMAL::CVideoBufferPoolMMAL>());
+  //m_videoBufferManager.RegisterPool(std::make_shared<MMAL::CVideoBufferPoolMMAL>());
 }
 
 EINTERLACEMETHOD CProcessInfoDmx::GetFallbackDeintMethod()

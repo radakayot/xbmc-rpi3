@@ -362,5 +362,5 @@ bool CVideoBufferPoolMMAL::IsCompatible(AVPixelFormat format, int size)
 
 void CVideoBufferPoolMMAL::Released(CVideoBufferManager& videoBufferManager)
 {
-  videoBufferManager.RegisterPool(std::make_shared<CVideoBufferPoolMMAL>());
+  //videoBufferManager.RegisterPool(std::make_shared<CVideoBufferPoolMMAL>());
 }
