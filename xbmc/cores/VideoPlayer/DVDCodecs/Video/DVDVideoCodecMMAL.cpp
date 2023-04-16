@@ -253,19 +253,17 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
 CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
 {
   m_bStop = true;
+
+  if (m_state != MCS_INITIALIZED)
+    m_state = MCS_CLOSING;
+
   if (IsRunning())
   {
     if (!Join(100ms))
-    {
-      //Kill thread?
-    }
+      Close();
   }
-
-  if (m_state != MCS_INITIALIZED)
-  {
-    if (m_state != MCS_CLOSED)
-      Close(true);
-  }
+  else
+    Close();
 
   if (m_input)
   {
@@ -826,10 +824,10 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
   return result;
 }
 
-bool CDVDVideoCodecMMAL::Close(bool force)
+bool CDVDVideoCodecMMAL::Close()
 {
   MMALCodecState state = m_state;
-  if (state == MCS_CLOSING || force)
+  if (state == MCS_CLOSING)
   {
     m_state = MCS_CLOSED;
     if (m_input->is_enabled != 0)
@@ -969,4 +967,5 @@ void CDVDVideoCodecMMAL::Process()
       KODI::TIME::Sleep(40ms);
     state = m_state;
   }
+  Close();
 }

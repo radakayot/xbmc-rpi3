@@ -69,7 +69,7 @@ private:
                                     CVideoBufferMMAL* buffer,
                                     void* userdata);
 
-  bool Close(bool force = false);
+  bool Close();
   bool ConfigureCodec(uint8_t* extraData, uint32_t extraDataSize);
 
   bool SendEndOfStream();
