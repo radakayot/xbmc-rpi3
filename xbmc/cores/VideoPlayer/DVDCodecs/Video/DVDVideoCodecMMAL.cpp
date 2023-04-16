@@ -944,23 +944,27 @@ void CDVDVideoCodecMMAL::Process()
       if (!buffer)
         m_bufferCondition.wait(lock, 40ms);
     }
-    else if (state == MCS_OPENED && !m_bufferPool->IsConfigured())
+    else if (state == MCS_OPENED)
     {
       std::unique_lock<CCriticalSection> lock(m_recvLock);
       if (m_bufferCondition.wait(lock, 15ms))
       {
-        if (m_output->format->es->video.color_space == MMAL_COLOR_SPACE_UNKNOWN)
-          m_output->format->es->video.color_space =
-              CVideoBufferPoolMMAL::TranslateColorSpace(m_hints.colorSpace);
-        std::unique_lock<CCriticalSection> lock(m_portLock);
-        if (mmal_port_format_commit(m_output) == MMAL_SUCCESS)
+        if (!m_bufferPool->IsConfigured())
         {
-          if (mmal_format_full_copy(m_portFormat, m_output->format) == MMAL_SUCCESS)
-            UpdateProcessInfo();
+          lock.unlock();
+          if (m_output->format->es->video.color_space == MMAL_COLOR_SPACE_UNKNOWN)
+            m_output->format->es->video.color_space =
+                CVideoBufferPoolMMAL::TranslateColorSpace(m_hints.colorSpace);
+          std::unique_lock<CCriticalSection> plock(m_portLock);
+          if (mmal_port_format_commit(m_output) == MMAL_SUCCESS)
+          {
+            if (mmal_format_full_copy(m_portFormat, m_output->format) == MMAL_SUCCESS)
+              UpdateProcessInfo();
+          }
+          else
+            CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - failed to commit port format",
+                      __FUNCTION__);
         }
-        else
-          CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - failed to commit port format",
-                    __FUNCTION__);
       }
     }
     else
