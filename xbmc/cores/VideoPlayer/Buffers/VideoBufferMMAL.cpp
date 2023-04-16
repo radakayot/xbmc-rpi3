@@ -26,6 +26,10 @@ extern "C"
 
 using namespace MMAL;
 
+#define MMAL_BUFFER_HEADER_LENGTH \
+  (sizeof(MMAL_BUFFER_HEADER_T) + sizeof(MMAL_BUFFER_HEADER_TYPE_SPECIFIC_T) + \
+   sizeof(MMAL_BUFFER_HEADER_PRIVATE_T))
+
 void CVideoBufferMMAL::ProcessReleaseCallback(MMALBufferHeader header)
 {
   if (header && header->priv && header->user_data)
@@ -49,19 +53,14 @@ CVideoBufferMMAL::CVideoBufferMMAL(MMALPort port, int id, AVPixelFormat format) 
 {
   m_pixFormat = format;
   m_pool = nullptr;
-  m_name = m_name + std::to_string(id);
-  uint32_t length = VCOS_ALIGN_UP(sizeof(*m_header), 8);
-  length += VCOS_ALIGN_UP(sizeof(*m_header->type), 8);
-  length += 256;
-  length += VCOS_ALIGN_UP(sizeof(*m_header->priv), 8);
-
-  void* header = vcos_calloc(1, length, m_name.c_str());
+  void* header = vcos_calloc(1, MMAL_BUFFER_HEADER_LENGTH, "MMALBufferHeader");
   if (header)
   {
-    memset(header, 0, length);
+    memset(header, 0, MMAL_BUFFER_HEADER_LENGTH);
     m_header = (MMAL_BUFFER_HEADER_T*)header;
-    m_header->type = (MMAL_BUFFER_HEADER_TYPE_SPECIFIC_T*)&m_header[1];
-    m_header->priv = (MMAL_BUFFER_HEADER_PRIVATE_T*)&m_header->type[1];
+    m_header->type = (MMAL_BUFFER_HEADER_TYPE_SPECIFIC_T*)(header + sizeof(MMAL_BUFFER_HEADER_T));
+    m_header->priv = (MMAL_BUFFER_HEADER_PRIVATE_T*)(header + sizeof(MMAL_BUFFER_HEADER_T) +
+                                                     sizeof(MMAL_BUFFER_HEADER_TYPE_SPECIFIC_T));
     m_header->user_data = this;
     m_header->priv->owner = nullptr;
     m_header->priv->refcount = 0;

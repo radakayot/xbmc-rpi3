@@ -105,7 +105,6 @@ public:
 
 private:
   static void ProcessReleaseCallback(MMALBufferHeader header);
-  std::string m_name{"MMALBufferHeader "};
   MMALBufferHeader m_header{nullptr};
   MMALFormat m_portFormat{nullptr};
 
