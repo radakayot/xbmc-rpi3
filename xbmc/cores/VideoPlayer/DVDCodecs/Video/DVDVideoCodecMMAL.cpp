@@ -544,6 +544,8 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
 
   m_hints = hints;
   m_state = MCS_OPENED;
+  m_bStop = false;
+
   if (!IsRunning())
     Create(false);
 
@@ -584,6 +586,7 @@ bool CDVDVideoCodecMMAL::ConfigureCodec(uint8_t* extraData, uint32_t extraSize)
     if (mmal_port_send_buffer(m_input, header) != MMAL_SUCCESS)
     {
       m_state = MCS_ERROR;
+      m_bStop = true;
       CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - failed to configure codec", __FUNCTION__);
       return false;
     }
@@ -943,11 +946,10 @@ void CDVDVideoCodecMMAL::Process()
       if (!buffer)
         m_bufferCondition.wait(lock, 40ms);
     }
-    else if (state == MCS_OPENED)
+    else if (state == MCS_OPENED && !m_bufferPool->IsConfigured())
     {
       std::unique_lock<CCriticalSection> lock(m_recvLock);
-
-      if (m_bufferCondition.wait(lock, 10s) && m_bufferPool->IsConfigured() == false)
+      if (m_bufferCondition.wait(lock, 15ms))
       {
         if (m_output->format->es->video.color_space == MMAL_COLOR_SPACE_UNKNOWN)
           m_output->format->es->video.color_space =
