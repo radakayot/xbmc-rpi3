@@ -173,22 +173,13 @@ uint32_t CVideoBufferPoolMMAL::TranslateColorSpace(AVColorSpace space)
 
 CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
 {
+  Release();
+
   for (auto buf : m_all)
     if (buf)
-      buf->Free();
+      delete buf;
 
-  if (m_component)
-  {
-    if (mmal_component_release(m_component) != MMAL_SUCCESS)
-      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to release component", __FUNCTION__);
-    m_component = nullptr;
-  }
-
-  if (m_portFormat)
-  {
-    mmal_format_free(m_portFormat);
-    m_portFormat = nullptr;
-  }
+  m_all.clear();
 }
 
 void CVideoBufferPoolMMAL::Release()
@@ -210,8 +201,25 @@ void CVideoBufferPoolMMAL::Release()
     {
       buffer = m_all[i];
       if (!buffer->IsRendering())
-        buffer->Free();
+        m_all[i] = nullptr;
+
+      buffer->Free();
     }
+  }
+
+  if (m_component)
+  {
+    if (m_port)
+      m_port = nullptr;
+    if (mmal_component_release(m_component) != MMAL_SUCCESS)
+      CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to release component", __FUNCTION__);
+    m_component = nullptr;
+  }
+
+  if (m_portFormat)
+  {
+    mmal_format_free(m_portFormat);
+    m_portFormat = nullptr;
   }
 }
 

@@ -80,6 +80,7 @@ CVideoBufferMMAL::~CVideoBufferMMAL()
     if (m_header->priv->refcount == 0)
     {
       vcos_free(m_header);
+      m_header = nullptr;
     }
     else
     {
