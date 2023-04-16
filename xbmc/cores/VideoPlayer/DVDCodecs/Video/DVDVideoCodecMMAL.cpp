@@ -260,6 +260,7 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
   m_bStop = true;
   if (!IsRunning() || !Join(500ms))
   {
+    
   }
 
   if (m_input)
@@ -276,6 +277,14 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
 
   if (m_output)
   {
+    std::unique_lock<CCriticalSection> lock(m_recvLock);
+    while (!m_buffers.empty())
+    {
+      CVideoBufferMMAL* buffer = m_buffers.front();
+      m_buffers.pop_front();
+      buffer->Release();
+    }
+
     m_output->userdata = nullptr;
     m_output = nullptr;
   }
@@ -799,11 +808,13 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
         m_codecControlFlags &= ~DVD_CODEC_CTRL_DRAIN;
       result = VC_BUFFER;
     }
+    /*
     else if (state == MCS_CLOSING && inputFree >= m_inputPool->headers_num)
     {
       result = VC_EOF;
       m_state = MCS_CLOSED;
     }
+    */
   }
   return result;
 }
@@ -821,16 +832,6 @@ bool CDVDVideoCodecMMAL::Close(bool force)
         m_input->userdata = nullptr;
       else
         CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to disable input port", __FUNCTION__);
-    }
-
-    {
-      std::unique_lock<CCriticalSection> lock(m_recvLock);
-      while (!m_buffers.empty())
-      {
-        CVideoBufferMMAL* buffer = m_buffers.front();
-        m_buffers.pop_front();
-        buffer->Release();
-      }
     }
 
     if (m_output->is_enabled != 0)
