@@ -44,7 +44,7 @@ void CVideoBufferMMAL::ProcessReleaseCallback(MMALBufferHeader header)
     }
     else
     {
-      delete buffer;
+      buffer->Free();
     }
   }
 }
@@ -74,8 +74,6 @@ CVideoBufferMMAL::CVideoBufferMMAL(MMALPort port, int id, AVPixelFormat format) 
 CVideoBufferMMAL::~CVideoBufferMMAL()
 {
   Free();
-  if (m_pool)
-    m_pool = nullptr;
 
   if (m_header)
   {
@@ -86,7 +84,6 @@ CVideoBufferMMAL::~CVideoBufferMMAL()
     }
     else
     {
-      m_header->priv->owner = nullptr;
       Release();
     }
   }
@@ -157,6 +154,7 @@ void CVideoBufferMMAL::Free()
     m_header->priv->pf_payload_free = NULL;
     m_header->priv->payload_size = 0;
     m_header->priv->owner = nullptr;
+    m_pool = nullptr;
   }
 }
 
@@ -186,7 +184,7 @@ void CVideoBufferMMAL::Acquire(std::shared_ptr<IVideoBufferPool> pool)
 void CVideoBufferMMAL::Release()
 {
   std::unique_lock<CCriticalSection> lock(m_bufferLock);
-  if (m_header->priv->refcount > 0)
+  if (m_header && m_header->priv->refcount > 0)
   {
     mmal_buffer_header_release(m_header);
     m_refCount = m_header->priv->refcount;
