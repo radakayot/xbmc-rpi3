@@ -44,6 +44,7 @@ void CVideoBufferMMAL::ProcessReleaseCallback(MMALBufferHeader header)
     }
     else
     {
+      buffer->m_pool = nullptr;
       buffer->Free();
     }
   }
@@ -74,7 +75,7 @@ CVideoBufferMMAL::CVideoBufferMMAL(MMALPort port, int id, AVPixelFormat format) 
 CVideoBufferMMAL::~CVideoBufferMMAL()
 {
   Free();
-
+  m_pool = nullptr;
   if (m_header)
   {
     if (m_header->priv->refcount == 0)
@@ -154,7 +155,6 @@ void CVideoBufferMMAL::Free()
     m_header->priv->pf_payload_free = NULL;
     m_header->priv->payload_size = 0;
     m_header->priv->owner = nullptr;
-    m_pool = nullptr;
   }
 }
 
