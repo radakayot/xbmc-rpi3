@@ -175,10 +175,14 @@ CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
 {
   Release();
 
-  for (auto buf : m_all)
-    if (buf)
-      delete buf;
-
+  for (auto buffer : m_all)
+  {
+    if (buffer)
+    {
+      buffer->Free();
+      delete buffer;
+    }
+  }
   m_all.clear();
 }
 
@@ -201,9 +205,10 @@ void CVideoBufferPoolMMAL::Release()
     {
       buffer = m_all[i];
       if (!buffer->IsRendering())
+      {
         m_all[i] = nullptr;
-
-      buffer->Free();
+        buffer->Free();
+      }
     }
   }
 

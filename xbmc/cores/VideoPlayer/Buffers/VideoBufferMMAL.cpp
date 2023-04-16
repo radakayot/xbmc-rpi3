@@ -124,6 +124,7 @@ void CVideoBufferMMAL::Free()
     m_header->priv->pf_payload_free = NULL;
     m_header->priv->payload_size = 0;
     m_header->priv->owner = nullptr;
+    m_pool = nullptr;
   }
 }
 
