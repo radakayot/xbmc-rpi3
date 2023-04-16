@@ -171,7 +171,7 @@ void CDVDVideoCodecMMAL::ProcessOutputCallback(MMALPort port, MMALBufferHeader h
         else if (state == MCS_CLOSING)
         {
           buffer->Release();
-          codec->Close();
+          //codec->Close();
         }
         else
           buffer->Release();
@@ -259,13 +259,19 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
 
   if (IsRunning())
   {
-    if (!Join(100ms))
+    if (!Join(250ms))
       Close();
   }
   else
     Close();
 
   m_state = MCS_CLOSED;
+
+  if (m_component->is_enabled != 0)
+  {
+    if (mmal_component_disable(m_component) != MMAL_SUCCESS)
+      CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to disable component", __FUNCTION__);
+  }
 
   if (m_input)
   {
@@ -852,12 +858,6 @@ bool CDVDVideoCodecMMAL::Close()
 
     m_ptsCurrent = MMAL_TIME_UNKNOWN;
     m_droppedFrames = -1;
-
-    if (m_component->is_enabled != 0)
-    {
-      if (mmal_component_disable(m_component) != MMAL_SUCCESS)
-        CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to disable component", __FUNCTION__);
-    }
   }
   return true;
 }
@@ -943,6 +943,8 @@ void CDVDVideoCodecMMAL::Process()
           }
         }
       }
+      else
+        buffer = nullptr;
       if (!buffer)
         m_bufferCondition.wait(lock, 40ms);
     }
