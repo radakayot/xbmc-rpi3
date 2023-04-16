@@ -120,6 +120,6 @@ private:
   XbmcThreads::ConditionVariable m_bufferCondition;
 
   CDVDStreamInfo m_hints;
-  std::shared_ptr<IVideoBufferPool> m_bufferPool;
+  //std::shared_ptr<IVideoBufferPool> m_bufferPool;
 };
 } // namespace MMAL

@@ -195,7 +195,7 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
   status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_DECODER, &m_component);
   if (status == MMAL_SUCCESS)
   {
-    m_bufferPool = std::make_shared<CVideoBufferPoolMMAL>();
+    //m_bufferPool = std::make_shared<CVideoBufferPoolMMAL>();
     if (m_component->is_enabled != 0)
       mmal_component_disable(m_component);
 
@@ -305,13 +305,13 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
     else
       CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - failed to disable control port", __FUNCTION__);
   }
-
+  /*
   if (m_bufferPool)
   {
     std::static_pointer_cast<CVideoBufferPoolMMAL>(m_bufferPool)->Release();
     m_bufferPool = nullptr;
   }
-
+*/
   if (m_portFormat)
   {
     mmal_format_free(m_portFormat);
@@ -369,7 +369,7 @@ void CDVDVideoCodecMMAL::UpdateProcessInfo()
     m_displayHeight = m_height;
   }
 
-  m_bufferPool->Configure(m_format, m_output->buffer_size);
+  //m_bufferPool->Configure(m_format, m_output->buffer_size);
 
   std::list<EINTERLACEMETHOD> intMethods;
   intMethods.push_back(VS_INTERLACEMETHOD_NONE);
@@ -920,6 +920,7 @@ void CDVDVideoCodecMMAL::Process()
 {
   MMALCodecState state = m_state;
   CVideoBufferMMAL* buffer = nullptr;
+  std::shared_ptr<CVideoBufferPoolMMAL> bufferPool = std::make_shared<CVideoBufferPoolMMAL>();
   int rendered = 0;
 
   if (state == MCS_OPENED)
@@ -932,7 +933,10 @@ void CDVDVideoCodecMMAL::Process()
     {
       lock.unlock();
       if (mmal_format_full_copy(m_portFormat, m_output->format) == MMAL_SUCCESS)
+      {
         UpdateProcessInfo();
+        bufferPool->Configure(m_format, m_output->buffer_size);
+      }
     }
     else
       CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - failed to commit port format", __FUNCTION__);
@@ -947,7 +951,7 @@ void CDVDVideoCodecMMAL::Process()
 
       if (rendered <= MMAL_CODEC_NUM_BUFFERS)
       {
-        if ((buffer = dynamic_cast<CVideoBufferMMAL*>(m_bufferPool->Get())) != NULL)
+        if ((buffer = dynamic_cast<CVideoBufferMMAL*>(bufferPool->Get())) != NULL)
         {
           if (mmal_port_send_buffer(m_output, buffer->GetHeader()) != MMAL_SUCCESS)
           {
@@ -966,4 +970,5 @@ void CDVDVideoCodecMMAL::Process()
     state = m_state;
   }
   Close();
+  bufferPool->Release();
 }
