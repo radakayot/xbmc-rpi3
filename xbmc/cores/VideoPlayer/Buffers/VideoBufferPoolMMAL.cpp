@@ -250,16 +250,18 @@ void CVideoBufferPoolMMAL::Release()
     delete buffer;
   }
 
-  while (!m_used.empty())
+  auto it = m_used.begin();
+  while (it != m_used.end())
   {
-    i = m_used.front();
+    i = *it;
     buffer = m_all[i];
-    if (!buffer->IsRendering())
+    if (buffer && !buffer->IsRendering())
     {
-      m_used.pop_front();
       m_all[i] = nullptr;
       buffer->Free();
+      m_used.erase(it);
     }
+    ++it;
   }
 
   if (m_portFormat)
