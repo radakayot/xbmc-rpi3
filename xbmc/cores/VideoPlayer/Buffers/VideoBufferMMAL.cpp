@@ -47,6 +47,7 @@ void CVideoBufferMMAL::ProcessReleaseCallback(MMALBufferHeader header)
       buffer->m_pool = nullptr;
       if (header->priv->payload)
         buffer->Free();
+      delete buffer;
     }
   }
 }
@@ -76,7 +77,7 @@ CVideoBufferMMAL::CVideoBufferMMAL(MMALPort port, int id, AVPixelFormat format) 
 CVideoBufferMMAL::~CVideoBufferMMAL()
 {
   m_pool = nullptr;
-
+  m_rendering = false;
   if (m_header)
   {
     if (m_header->priv->payload)
@@ -150,14 +151,17 @@ void CVideoBufferMMAL::Free()
 {
   if (m_header && m_header->priv)
   {
-    if (m_header->priv->pf_payload_free && m_header->priv->payload_size > 0)
-      m_header->priv->pf_payload_free(m_header->priv->payload_context, m_header->priv->payload);
-    m_header->data = nullptr;
-    m_header->alloc_size = 0;
-    m_header->priv->payload = nullptr;
-    m_header->priv->payload_context = nullptr;
-    m_header->priv->pf_payload_free = NULL;
-    m_header->priv->payload_size = 0;
+    if (!m_rendering)
+    {
+      if (m_header->priv->pf_payload_free && m_header->priv->payload_size > 0)
+        m_header->priv->pf_payload_free(m_header->priv->payload_context, m_header->priv->payload);
+      m_header->data = nullptr;
+      m_header->alloc_size = 0;
+      m_header->priv->payload = nullptr;
+      m_header->priv->payload_context = nullptr;
+      m_header->priv->pf_payload_free = NULL;
+      m_header->priv->payload_size = 0;
+    }
     m_header->priv->owner = nullptr;
   }
 }

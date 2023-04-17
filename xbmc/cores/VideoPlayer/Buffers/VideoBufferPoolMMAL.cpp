@@ -219,16 +219,9 @@ CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
 {
   Release();
 
-  std::unique_lock<CCriticalSection> lock(m_poolLock);
   for (auto buffer : m_all)
-  {
     if (buffer)
-    {
       buffer->Free();
-      delete buffer;
-    }
-  }
-  m_all.clear();
 
   if (m_port)
   {
@@ -250,19 +243,16 @@ void CVideoBufferPoolMMAL::Release()
     delete buffer;
   }
 
-  auto it = m_used.begin();
-  while (it != m_used.end())
+  while (!m_used.empty())
   {
-    i = *it;
+    i = m_used.front();
+    m_used.pop_front();
     buffer = m_all[i];
-    if (buffer && !buffer->IsRendering())
-    {
-      m_all[i] = nullptr;
-      buffer->Free();
-      m_used.erase(it);
-    }
-    ++it;
+    m_all[i] = nullptr;
+    buffer->Free();
   }
+
+  m_all.clear();
 
   if (m_portFormat)
   {
