@@ -223,6 +223,8 @@ CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
     if (buffer)
       buffer->Free();
 
+  m_all.clear();
+
   if (m_port)
   {
     m_port = nullptr;
@@ -251,8 +253,6 @@ void CVideoBufferPoolMMAL::Release()
     m_all[i] = nullptr;
     buffer->Free();
   }
-
-  m_all.clear();
 
   if (m_portFormat)
   {

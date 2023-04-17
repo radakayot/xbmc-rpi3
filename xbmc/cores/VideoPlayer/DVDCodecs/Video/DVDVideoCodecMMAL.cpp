@@ -961,4 +961,5 @@ void CDVDVideoCodecMMAL::Process()
     buffer->Release();
   Close();
   bufferPool->Release();
+  bufferPool = nullptr;
 }

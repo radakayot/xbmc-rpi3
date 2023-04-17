@@ -198,7 +198,7 @@ CDVDVideoCodecFFmpegMMAL::~CDVDVideoCodecFFmpegMMAL()
 
   if (m_bufferPool)
   {
-    m_bufferPool->Dispose();
+    m_bufferPool->Release();
     m_bufferPool = nullptr;
   }
 
@@ -252,43 +252,10 @@ void CDVDVideoCodecFFmpegMMAL::UpdateProcessInfo()
     m_displayHeight = m_height;
   }
 
-  VideoPicture picture{};
+  int size = av_image_get_buffer_size(m_format, VCOS_ALIGN_UP(m_width, 32),
+                                      VCOS_ALIGN_UP(m_height, 16), 1);
 
-  picture.Reset();
-
-  picture.hasDisplayMetadata = false;
-  picture.hasLightMetadata = false;
-
-  picture.pixelFormat = m_format;
-
-  picture.iWidth = m_width;
-  picture.iHeight = m_height;
-  picture.iDisplayWidth = m_displayWidth;
-  picture.iDisplayHeight = m_displayHeight;
-
-  picture.color_range = m_hints.colorRange == AVCOL_RANGE_JPEG;
-  picture.color_primaries = m_hints.colorPrimaries;
-  picture.color_transfer = m_hints.colorTransferCharacteristic;
-  picture.color_space = m_hints.colorSpace;
-  picture.colorBits = m_hints.bitsperpixel;
-
-  if (m_hints.masteringMetadata)
-  {
-    picture.displayMetadata = *m_hints.masteringMetadata.get();
-    picture.hasDisplayMetadata = true;
-  }
-
-  if (m_hints.contentLightMetadata)
-  {
-    picture.lightMetadata = *m_hints.contentLightMetadata.get();
-    picture.hasLightMetadata = true;
-  }
-  int size = 0;
-  if (m_codec->id != AV_CODEC_ID_HEVC)
-    size = av_image_get_buffer_size(m_format, VCOS_ALIGN_UP(m_width, 32),
-                                    VCOS_ALIGN_UP(m_height, 16), 1);
-
-  m_bufferPool->Configure(m_portFormat, &picture, MMAL_FFMPEG_CODEC_NUM_BUFFERS + 1, size);
+  m_bufferPool->Configure(m_format, size);
   m_processInfo.SetVideoPixelFormat(pixFmtName ? pixFmtName : "");
   m_processInfo.SetVideoDimensions(m_width, m_height);
   m_processInfo.SetVideoDecoderName(m_name, true);
@@ -646,8 +613,7 @@ void CDVDVideoCodecFFmpegMMAL::Process()
   while (!m_bStop && (state == MCS_DECODING || state == MCS_FLUSHING || state == MCS_CLOSING ||
                       state == MCS_FLUSHED))
   {
-    available = m_bufferPool->Length();
-    while (status == AV_SUCCESS && (available > 0 || state == MCS_FLUSHING))
+    while (status == AV_SUCCESS)
     {
       std::unique_lock<CCriticalSection> lock(m_bufferLock);
       status = static_cast<AVStatus>(avcodec_receive_frame(m_context, frame));

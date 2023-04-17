@@ -246,14 +246,14 @@ void CVideoPlayerVideo::CloseStream(bool bWaitForBuffers)
 
   m_messageQueue.End();
 
-  CLog::Log(LOGINFO, "deleting video codec");
-  m_pVideoCodec.reset();
-
   if (m_picture.videoBuffer)
   {
     m_picture.videoBuffer->Release();
     m_picture.videoBuffer = nullptr;
   }
+
+  CLog::Log(LOGINFO, "deleting video codec");
+  m_pVideoCodec.reset();
 }
 
 bool CVideoPlayerVideo::AcceptsData() const

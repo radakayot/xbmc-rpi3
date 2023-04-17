@@ -585,24 +585,23 @@ bool CRendererMMAL::Flush(bool saveBuffers)
 
   if (state != MRS_FLUSHED && m_port->is_enabled != 0 && flush)
   {
-    CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushing input port", __FUNCTION__);
     //if (((MMALPortPrivate)m_port->priv)->pf_flush(m_port) != MMAL_SUCCESS)
     if (!saveBuffers)
     {
+      CLog::Log(LOGDEBUG, "CRendererMMAL::{} - disabling input port", __FUNCTION__);
       if (mmal_port_disable(m_port) != MMAL_SUCCESS)
         CLog::Log(LOGERROR, "CRendererMMAL::{} - failed to disable input port", __FUNCTION__);
       else
         CLog::Log(LOGDEBUG, "CRendererMMAL::{} - disabled input port", __FUNCTION__);
     }
-    /*
     else
     {
+      CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushing input port", __FUNCTION__);
       if (mmal_port_flush(m_port) != MMAL_SUCCESS)
         CLog::Log(LOGERROR, "CRendererMMAL::{} - failed to flush input port", __FUNCTION__);
       else
         CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushed input port", __FUNCTION__);
     }
-    */
   }
 
   m_state = MRS_FLUSHED;
