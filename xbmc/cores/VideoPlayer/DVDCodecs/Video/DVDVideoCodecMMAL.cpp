@@ -797,6 +797,8 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
       buffer->WritePicture(pVideoPicture);
 
       pVideoPicture->videoBuffer = buffer;
+
+      CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - returning frame", __FUNCTION__);
       result = VC_PICTURE;
     }
     else if (state != MCS_CLOSING)
@@ -809,6 +811,11 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
         if ((m_codecControlFlags & DVD_CODEC_CTRL_DRAIN) != 0)
           m_codecControlFlags &= ~DVD_CODEC_CTRL_DRAIN;
         result = VC_BUFFER;
+        CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - decoder needs more buffer", __FUNCTION__);
+      }
+      else
+      {
+        CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - there is enogh buffer", __FUNCTION__);
       }
     }
   }
@@ -925,6 +932,8 @@ void CDVDVideoCodecMMAL::Process()
         bufferPool->Configure(m_format, m_output->buffer_size);
         m_state = state = MCS_DECODING;
       }
+      else
+        CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - failed to copy port format", __FUNCTION__);
     }
     else
       CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - failed to commit port format", __FUNCTION__);
