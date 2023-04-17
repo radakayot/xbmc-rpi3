@@ -359,8 +359,6 @@ void CDVDVideoCodecMMAL::UpdateProcessInfo()
     m_displayHeight = m_height;
   }
 
-  //m_bufferPool->Configure(m_format, m_output->buffer_size);
-
   std::list<EINTERLACEMETHOD> intMethods;
   intMethods.push_back(VS_INTERLACEMETHOD_NONE);
   m_processInfo.UpdateDeinterlacingMethods(intMethods);
@@ -723,44 +721,45 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
   CDVDVideoCodec::VCReturn result = VC_NONE;
   MMALCodecState state = m_state;
 
-  if (state == MCS_INITIALIZED || state == MCS_UNINITIALIZED)
+  if (state == MCS_INITIALIZED || state == MCS_UNINITIALIZED || state == MCS_ERROR)
   {
     result = VC_ERROR;
+    CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - decoder error", __FUNCTION__);
   }
-  else if (state == MCS_CLOSED || state == MCS_ERROR)
+  else if (state == MCS_CLOSED)
   {
     result = VC_EOF;
+    CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - end of stream", __FUNCTION__);
   }
   else if (state == MCS_OPENED)
   {
     result = VC_BUFFER;
+    CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - need more buffer", __FUNCTION__);
   }
   else if (state == MCS_RESET)
   {
     result = VC_FLUSHED;
+    CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - decoder lost its state", __FUNCTION__);
   }
   else
   {
     std::unique_lock<CCriticalSection> lock(m_recvLock);
     uint32_t rendered = m_buffers.size();
-    uint32_t inputFree = mmal_queue_length(m_inputPool->queue);
-    uint32_t renderLimit = (static_cast<float>(inputFree - 1) / (m_inputPool->headers_num - 1)) *
-                           MMAL_CODEC_NUM_BUFFERS;
-    bool receive = rendered <= MMAL_CODEC_NUM_BUFFERS && inputFree > 1 &&
-                   (m_input->buffer_size * (inputFree - 1)) > m_rejectedSize;
     bool drain = state == MCS_CLOSING || state == MCS_FLUSHING || state == MCS_FLUSHED ||
-                 (m_codecControlFlags & DVD_CODEC_CTRL_DRAIN) != 0 ||
-                 (m_codecControlFlags & DVD_CODEC_CTRL_DROP_ANY) != 0;
+                 (m_codecControlFlags & DVD_CODEC_CTRL_DRAIN) != 0;
 
-    if (rendered > 0 && (drain || rendered >= renderLimit))
+    if (rendered == 0 && m_bufferCondition.wait(lock, 40ms))
+      rendered = m_buffers.size();
+
+    if (rendered > 0 && (drain || rendered >= MMAL_CODEC_NUM_BUFFERS))
     {
-      CVideoBufferMMAL* buffer = m_buffers.front();
       bool drop = (m_codecControlFlags & DVD_CODEC_CTRL_DROP) != 0;
+      CVideoBufferMMAL* buffer = m_buffers.front();
       m_buffers.pop_front();
       lock.unlock();
 
       pVideoPicture->Reset();
-      pVideoPicture->iFlags |= m_codecControlFlags;
+      pVideoPicture->iFlags = m_codecControlFlags;
 
       if ((pVideoPicture->iFlags & DVD_CODEC_CTRL_DRAIN) != 0)
         pVideoPicture->iFlags &= ~DVD_CODEC_CTRL_DRAIN;
@@ -800,19 +799,18 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
       pVideoPicture->videoBuffer = buffer;
       result = VC_PICTURE;
     }
-    else if (state != MCS_CLOSING && receive)
+    else if (state != MCS_CLOSING)
     {
-      if ((m_codecControlFlags & DVD_CODEC_CTRL_DRAIN) != 0)
-        m_codecControlFlags &= ~DVD_CODEC_CTRL_DRAIN;
-      result = VC_BUFFER;
+      lock.unlock();
+      uint32_t inputFree = mmal_queue_length(m_inputPool->queue);
+      if (rendered <= MMAL_CODEC_NUM_BUFFERS && inputFree > 1 &&
+          (m_input->buffer_size * (inputFree - 1)) > m_rejectedSize)
+      {
+        if ((m_codecControlFlags & DVD_CODEC_CTRL_DRAIN) != 0)
+          m_codecControlFlags &= ~DVD_CODEC_CTRL_DRAIN;
+        result = VC_BUFFER;
+      }
     }
-    /*
-    else if (state == MCS_CLOSING && inputFree >= m_inputPool->headers_num)
-    {
-      result = VC_EOF;
-      m_state = MCS_CLOSED;
-    }
-    */
   }
   return result;
 }
@@ -937,34 +935,21 @@ void CDVDVideoCodecMMAL::Process()
     if (state == MCS_DECODING)
     {
       std::unique_lock<CCriticalSection> lock(m_recvLock);
-      rendered = m_buffers.size();
+      if (!buffer)
+        buffer = dynamic_cast<CVideoBufferMMAL*>(bufferPool->Get());
 
-      if (rendered <= MMAL_CODEC_NUM_BUFFERS)
-      {
-        if ((buffer = dynamic_cast<CVideoBufferMMAL*>(bufferPool->Get())) != NULL)
-        {
-          if (mmal_port_send_buffer(m_output, buffer->GetHeader()) != MMAL_SUCCESS)
-          {
-            buffer->Release();
-            m_bufferCondition.wait(lock, 40ms);
-          }
-        }
-        else
-        {
-          lock.unlock();
-          KODI::TIME::Sleep(10ms);
-        }
-      }
+      if (mmal_port_send_buffer(m_output, buffer->GetHeader()) == MMAL_SUCCESS)
+        buffer = nullptr;
       else
-      {
-        lock.unlock();
-        KODI::TIME::Sleep(10ms);
-      }
+        m_bufferCondition.wait(lock, 40ms);
     }
     else
       KODI::TIME::Sleep(40ms);
     state = m_state;
   }
+
+  if (buffer)
+    buffer->Release();
   Close();
   bufferPool->Release();
 }
