@@ -47,7 +47,7 @@ void CVideoBufferMMAL::ProcessReleaseCallback(MMALBufferHeader header)
       buffer->m_pool = nullptr;
       if (header->priv->payload)
         buffer->Free();
-      delete buffer;
+      //delete buffer;
     }
   }
 }
