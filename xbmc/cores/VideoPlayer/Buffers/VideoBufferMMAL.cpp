@@ -45,8 +45,18 @@ void CVideoBufferMMAL::ProcessReleaseCallback(MMALBufferHeader header)
     else
     {
       buffer->m_pool = nullptr;
+      buffer->m_rendering = false;
       if (header->priv->payload)
+      {
         buffer->Free();
+        buffer->m_header->priv->pf_release = nullptr;
+      }
+      if (buffer->m_header)
+      {
+        vcos_free(buffer->m_header);
+        buffer->m_header = nullptr;
+      }
+      //Deleting buffer causes crash?
       //delete buffer;
     }
   }
@@ -149,7 +159,7 @@ bool CVideoBufferMMAL::Realloc(uint32_t size)
 
 void CVideoBufferMMAL::Free()
 {
-  if (m_header && m_header->priv)
+  if (m_header)
   {
     if (!m_rendering)
     {
@@ -217,11 +227,13 @@ void CVideoBufferMMAL::Unlock()
 
 bool CVideoBufferMMAL::IsRendering()
 {
+  std::unique_lock<CCriticalSection> lock(m_bufferLock);
   return m_rendering;
 }
 
 void CVideoBufferMMAL::SetRendering(bool rendering)
 {
+  std::unique_lock<CCriticalSection> lock(m_bufferLock);
   m_rendering = rendering;
 }
 
@@ -280,6 +292,7 @@ void CVideoBufferMMAL::SetDimensions(int width,
 
 void CVideoBufferMMAL::ReadPicture(const VideoPicture& videoPicture)
 {
+  std::unique_lock<CCriticalSection> lock(m_bufferLock);
   if (m_header)
   {
     if (videoPicture.pts == DVD_NOPTS_VALUE)
@@ -300,6 +313,7 @@ void CVideoBufferMMAL::ReadPicture(const VideoPicture& videoPicture)
 
 void CVideoBufferMMAL::WritePicture(VideoPicture* pVideoPicture)
 {
+  std::unique_lock<CCriticalSection> lock(m_bufferLock);
   if (m_header)
   {
     if (m_header->pts == MMAL_TIME_UNKNOWN)
