@@ -221,7 +221,7 @@ CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
 
   for (auto buffer : m_all)
     if (buffer)
-      buffer->Free();
+      delete buffer;
 
   m_all.clear();
 
@@ -250,7 +250,6 @@ void CVideoBufferPoolMMAL::Release()
     i = m_used.front();
     m_used.pop_front();
     buffer = m_all[i];
-    m_all[i] = nullptr;
     buffer->Free();
   }
 

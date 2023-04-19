@@ -86,15 +86,8 @@ CVideoBufferMMAL::~CVideoBufferMMAL()
     if (m_header->priv->payload)
       Free();
 
-    if (m_header->priv->refcount == 0)
-    {
-      vcos_free(m_header);
-      m_header = nullptr;
-    }
-    else
-    {
-      Release();
-    }
+    vcos_free((void*)m_header);
+    m_header = nullptr;
   }
 }
 
