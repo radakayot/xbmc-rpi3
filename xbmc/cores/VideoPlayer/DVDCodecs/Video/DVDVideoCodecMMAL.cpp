@@ -945,7 +945,7 @@ void CDVDVideoCodecMMAL::Process()
     {
       std::unique_lock<CCriticalSection> lock(m_recvLock);
       rendered = m_buffers.size();
-      if (rendered <= MMAL_CODEC_NUM_BUFFERS + 1)
+      if (rendered <= MMAL_CODEC_NUM_BUFFERS)
       {
         if (!buffer)
           buffer = dynamic_cast<CVideoBufferMMAL*>(bufferPool->Get());
@@ -955,6 +955,8 @@ void CDVDVideoCodecMMAL::Process()
         else
           m_bufferCondition.wait(lock, 20ms);
       }
+      else
+        KODI::TIME::Sleep(20ms);
     }
     else
       KODI::TIME::Sleep(20ms);
