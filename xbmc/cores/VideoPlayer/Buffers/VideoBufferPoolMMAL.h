@@ -27,15 +27,9 @@ extern "C"
 #include <libavcodec/codec_id.h>
 #include <libavutil/pixfmt.h>
 }
+
 namespace MMAL
 {
-class CVideoBufferMMAL;
-class CVideoBufferPoolMMAL;
-
-typedef void (*IVideoBufferPoolMMALCallback)(CVideoBufferPoolMMAL* pool,
-                                             CVideoBufferMMAL* buffer,
-                                             void* userdata);
-
 class CVideoBufferPoolMMAL : public IVideoBufferPool
 {
 public:
@@ -54,25 +48,21 @@ public:
   void Configure(AVPixelFormat format, int size) override;
   bool IsConfigured() override;
   bool IsCompatible(AVPixelFormat format, int size) override;
+
   void Release();
 
-  void Released(CVideoBufferManager& videoBufferManager) override;
-
 protected:
-  void Initialize();
-  void InitializeBuffers(VideoPicture* pBasePicture);
-
   std::vector<CVideoBufferMMAL*> m_all;
   std::deque<int> m_used;
   std::deque<int> m_free;
-
-  CCriticalSection m_poolLock;
 
 private:
   static MMALComponent m_component;
   MMALPort m_port{nullptr};
   MMALFormat m_portFormat{nullptr};
   AVPixelFormat m_format{AV_PIX_FMT_NONE};
+  int m_size{0};
+  CCriticalSection m_poolLock;
 };
 
 } // namespace MMAL

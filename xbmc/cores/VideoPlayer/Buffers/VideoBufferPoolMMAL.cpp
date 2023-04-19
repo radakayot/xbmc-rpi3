@@ -262,7 +262,7 @@ void CVideoBufferPoolMMAL::Release()
 
 CVideoBuffer* CVideoBufferPoolMMAL::Get()
 {
-  return Get(m_port->buffer_size);
+  return Get(m_size);
 }
 
 CVideoBuffer* CVideoBufferPoolMMAL::Get(int size)
@@ -328,11 +328,10 @@ void CVideoBufferPoolMMAL::Configure(AVPixelFormat format, int size)
     m_portFormat->extradata_size = 0;
     mmal_format_full_copy(m_portFormat, m_port->format);
   }
-
+  m_size = size;
   m_format = format;
   m_portFormat->encoding = TranslateFormat(format);
   m_portFormat->encoding_variant = MMAL_ENCODING_UNKNOWN;
-  m_port->buffer_size = size;
 }
 
 bool CVideoBufferPoolMMAL::IsConfigured()
@@ -344,14 +343,8 @@ bool CVideoBufferPoolMMAL::IsConfigured()
 bool CVideoBufferPoolMMAL::IsCompatible(AVPixelFormat format, int size)
 {
   std::unique_lock<CCriticalSection> lock(m_poolLock);
-  if (m_port && m_portFormat && m_portFormat->encoding == TranslateFormat(format) &&
-      size == (int)m_port->buffer_size)
+  if (m_port && m_portFormat && m_portFormat->encoding == TranslateFormat(format) && size == m_size)
     return true;
 
   return false;
-}
-
-void CVideoBufferPoolMMAL::Released(CVideoBufferManager& videoBufferManager)
-{
-  //videoBufferManager.RegisterPool(std::make_shared<CVideoBufferPoolMMAL>());
 }
