@@ -570,7 +570,7 @@ bool CRendererMMAL::Flush(bool saveBuffers)
   {
     if (m_buffers[i] != nullptr)
     {
-      if (m_buffers[i]->IsRendering() == false)
+      if (!m_buffers[i]->IsRendering())
       {
         if (!saveBuffers)
         {
@@ -619,10 +619,10 @@ bool CRendererMMAL::SendBuffer(int index)
     if (m_buffers[index]->IsRendering())
       return true;
 
+    m_buffers[index]->SetRendering(true);
     MMALBufferHeader header = m_buffers[index]->GetHeader();
     if ((header->flags & MMAL_BUFFER_HEADER_FLAG_DROPPED) == 0)
     {
-      m_buffers[index]->SetRendering(true);
       if (m_state == MRS_FLUSHED && (header->flags & MMAL_BUFFER_HEADER_FLAG_DISCONTINUITY) == 0)
         header->flags |= MMAL_BUFFER_HEADER_FLAG_DISCONTINUITY;
       MMALStatus status = mmal_port_send_buffer(m_port, header);
@@ -669,18 +669,17 @@ void CRendererMMAL::ReleaseBuffer(int index)
 bool CRendererMMAL::NeedBuffer(int index)
 {
   std::unique_lock<CCriticalSection> lock(m_bufferLock);
-  bool result = false;
   if (m_buffers[index] != nullptr)
   {
-    if (m_buffers[index]->IsRendering() == false)
+    if (!m_buffers[index]->IsRendering())
     {
       m_buffers[index]->Release();
       m_buffers[index] = nullptr;
     }
     else
-      result = true;
+      return true;
   }
-  return result;
+  return false;
 }
 
 CRenderInfo CRendererMMAL::GetRenderInfo()

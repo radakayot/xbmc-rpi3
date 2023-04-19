@@ -35,22 +35,16 @@ void CVideoBufferMMAL::ProcessReleaseCallback(MMALBufferHeader header)
   if (header && header->priv && header->user_data)
   {
     CVideoBufferMMAL* buffer = static_cast<CVideoBufferMMAL*>(header->user_data);
-    if (header->priv->owner && buffer->m_pool)
+    if (header->priv->owner)
     {
-      std::shared_ptr<IVideoBufferPool> pool = buffer->m_pool->GetPtr();
-      buffer->m_pool = nullptr;
       header->priv->owner = nullptr;
-      pool->Return(buffer->m_id);
+      buffer->m_pool->Return(buffer->m_id);
     }
     else
     {
-      buffer->m_pool = nullptr;
-      buffer->m_rendering = false;
       if (header->priv->payload)
-      {
         buffer->Free();
-        buffer->m_header->priv->pf_release = nullptr;
-      }
+      buffer->m_pool = nullptr;
     }
   }
 }
