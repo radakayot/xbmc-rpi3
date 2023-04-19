@@ -86,7 +86,7 @@ CVideoBufferMMAL::~CVideoBufferMMAL()
     if (m_header->priv->payload)
       Free();
 
-    vcos_free((void*)m_header);
+    //vcos_free((void*)m_header); //This causes segmentation fault.
     m_header = nullptr;
   }
 }
@@ -194,10 +194,7 @@ void CVideoBufferMMAL::Release()
     m_refCount = m_header->priv->refcount;
   }
   if (m_header && m_header->priv->pf_release == nullptr)
-  {
-    vcos_free((void*)m_header);
-    m_header = nullptr;
-  }
+    delete this;
 }
 
 bool CVideoBufferMMAL::Lock()
