@@ -220,7 +220,7 @@ CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
   Release();
 
   for (auto buffer : m_all)
-    if (buffer)
+    if (buffer && !buffer->IsRendering())
       delete buffer;
 
   m_all.clear();
