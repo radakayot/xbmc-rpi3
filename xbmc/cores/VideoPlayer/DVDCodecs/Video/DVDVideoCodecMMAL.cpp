@@ -134,7 +134,7 @@ void CDVDVideoCodecMMAL::ProcessOutputCallback(MMALPort port, MMALBufferHeader h
             codec->m_output->format->es->video.par.den = videoFormat->par.den;
           }
 
-          codec->m_output->buffer_num = 2;
+          codec->m_output->buffer_num = MMAL_CODEC_NUM_BUFFERS + 1;
           codec->m_output->buffer_size = args->buffer_size_recommended;
           mmal_buffer_header_mem_unlock(header);
           if (!codec->IsRunning())
@@ -500,7 +500,7 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
     return false;
   }
 
-  m_output->buffer_num = 2;
+  m_output->buffer_num = MMAL_CODEC_NUM_BUFFERS + 1;
   m_output->buffer_size = m_output->buffer_size_recommended;
 
   if (mmal_port_enable(m_input, CDVDVideoCodecMMAL::ProcessInputCallback) != MMAL_SUCCESS)
