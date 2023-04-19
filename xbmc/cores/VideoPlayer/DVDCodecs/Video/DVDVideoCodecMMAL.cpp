@@ -253,7 +253,7 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
     m_state = MCS_CLOSING;
 
   if (IsRunning())
-    CThread::~CThread();
+    Join(400ms);
 
   Close();
 
