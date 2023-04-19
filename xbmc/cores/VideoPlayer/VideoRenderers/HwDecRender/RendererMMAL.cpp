@@ -594,6 +594,7 @@ bool CRendererMMAL::Flush(bool saveBuffers)
       else
         CLog::Log(LOGDEBUG, "CRendererMMAL::{} - disabled input port", __FUNCTION__);
     }
+    /*
     else
     {
       CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushing input port", __FUNCTION__);
@@ -602,6 +603,7 @@ bool CRendererMMAL::Flush(bool saveBuffers)
       else
         CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushed input port", __FUNCTION__);
     }
+    */
   }
 
   m_state = MRS_FLUSHED;
