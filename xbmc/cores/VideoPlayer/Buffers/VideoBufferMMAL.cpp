@@ -51,13 +51,6 @@ void CVideoBufferMMAL::ProcessReleaseCallback(MMALBufferHeader header)
         buffer->Free();
         buffer->m_header->priv->pf_release = nullptr;
       }
-      if (buffer->m_header)
-      {
-        vcos_free(buffer->m_header);
-        buffer->m_header = nullptr;
-      }
-      //Deleting buffer causes crash?
-      //delete buffer;
     }
   }
 }
@@ -206,6 +199,11 @@ void CVideoBufferMMAL::Release()
   {
     mmal_buffer_header_release(m_header);
     m_refCount = m_header->priv->refcount;
+  }
+  if (m_header && m_header->priv->pf_release == nullptr)
+  {
+    vcos_free((void*)m_header);
+    m_header = nullptr;
   }
 }
 
