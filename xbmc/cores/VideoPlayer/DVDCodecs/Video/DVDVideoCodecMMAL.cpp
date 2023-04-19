@@ -956,7 +956,7 @@ void CDVDVideoCodecMMAL::Process()
           m_bufferCondition.wait(lock, 20ms);
       }
       else
-        KODI::TIME::Sleep(20ms);
+        m_bufferCondition.wait(lock, 20ms);
     }
     else
       KODI::TIME::Sleep(20ms);
