@@ -193,8 +193,6 @@ void CVideoBufferMMAL::Release()
     mmal_buffer_header_release(m_header);
     m_refCount = m_header->priv->refcount;
   }
-  if (m_header && m_header->priv->pf_release == nullptr)
-    delete this;
 }
 
 bool CVideoBufferMMAL::Lock()

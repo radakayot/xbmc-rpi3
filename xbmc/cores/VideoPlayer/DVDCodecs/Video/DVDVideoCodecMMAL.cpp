@@ -253,12 +253,9 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
     m_state = MCS_CLOSING;
 
   if (IsRunning())
-  {
-    if (!Join(250ms))
-      Close();
-  }
-  else
-    Close();
+    CThread::~CThread();
+
+  Close();
 
   m_state = MCS_CLOSED;
 
@@ -963,7 +960,6 @@ void CDVDVideoCodecMMAL::Process()
 
   if (buffer)
     buffer->Release();
-  Close();
   bufferPool->Release();
   bufferPool = nullptr;
 }
