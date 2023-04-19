@@ -912,10 +912,9 @@ bool CDVDVideoCodecMMAL::GetCodecStats(double& pts, int& droppedFrames, int& ski
 
 void CDVDVideoCodecMMAL::Process()
 {
+  std::shared_ptr<CVideoBufferPoolMMAL> bufferPool = std::make_shared<CVideoBufferPoolMMAL>();
   MMALCodecState state = m_state;
   CVideoBufferMMAL* buffer = nullptr;
-  std::shared_ptr<CVideoBufferPoolMMAL> bufferPool = std::make_shared<CVideoBufferPoolMMAL>();
-  int rendered = 0;
 
   if (state == MCS_OPENED)
   {
@@ -944,8 +943,9 @@ void CDVDVideoCodecMMAL::Process()
     if (state == MCS_DECODING)
     {
       std::unique_lock<CCriticalSection> lock(m_recvLock);
-      rendered = m_buffers.size();
-      if (rendered <= MMAL_CODEC_NUM_BUFFERS)
+      if (m_buffers.size() > MMAL_CODEC_NUM_BUFFERS)
+        m_bufferCondition.wait(lock, 40ms);
+      else
       {
         if (!buffer)
           buffer = dynamic_cast<CVideoBufferMMAL*>(bufferPool->Get());
@@ -953,13 +953,11 @@ void CDVDVideoCodecMMAL::Process()
         if (mmal_port_send_buffer(m_output, buffer->GetHeader()) == MMAL_SUCCESS)
           buffer = nullptr;
         else
-          m_bufferCondition.wait(lock, 20ms);
+          m_bufferCondition.wait(lock, 40ms);
       }
-      else
-        m_bufferCondition.wait(lock, 20ms);
     }
     else
-      KODI::TIME::Sleep(20ms);
+      KODI::TIME::Sleep(10ms);
     state = m_state;
   }
 
