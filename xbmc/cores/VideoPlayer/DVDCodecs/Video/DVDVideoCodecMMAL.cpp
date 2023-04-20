@@ -741,7 +741,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
       }
       else
       {
-        m_bufferCondition.wait(lock, 20ms);
+        //m_bufferCondition.wait(lock, 20ms);
         CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - there is enogh buffer", __FUNCTION__);
       }
     }
