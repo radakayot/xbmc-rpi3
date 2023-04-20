@@ -839,7 +839,7 @@ void CDVDVideoCodecMMAL::Process()
       if (mmal_format_full_copy(m_portFormat, m_output->format) == MMAL_SUCCESS)
       {
         m_format = CVideoBufferPoolMMAL::TranslatePortFormat(m_portFormat->encoding);
-        m_name = std::string(av_fourcc2str(m_input->format->encoding) ?: "");
+        mmal_4cc_to_string(&m_name[0], 5, m_input->format->encoding);
         if (m_name.length() > 0)
           m_name = StringUtils::TrimRight(m_name) + "-mmal";
         else
