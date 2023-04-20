@@ -571,18 +571,18 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
 
     if (header->length > header->alloc_size)
     {
-      uint32_t size = VCOS_ALIGN_UP(header->length, 8192);
+      m_input->buffer_size = VCOS_ALIGN_UP(header->length, 8192);
       MMALPort port = (MMALPort)header->priv->payload_context;
       MMALPortPrivate priv = (MMALPortPrivate)port->priv;
-      uint8_t* payload = priv->pf_payload_alloc(port, size);
+      uint8_t* payload = priv->pf_payload_alloc(port, m_input->buffer_size);
       if (payload)
       {
         if (header->priv->pf_payload_free && header->priv->payload_size > 0)
           header->priv->pf_payload_free(header->priv->payload_context, header->priv->payload);
         header->data = payload;
-        header->alloc_size = size;
+        header->alloc_size = m_input->buffer_size;
         header->priv->payload = payload;
-        header->priv->payload_size = size;
+        header->priv->payload_size = m_input->buffer_size;
       }
       else
       {
