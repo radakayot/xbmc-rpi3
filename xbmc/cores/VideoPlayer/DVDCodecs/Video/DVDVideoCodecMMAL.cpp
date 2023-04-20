@@ -585,7 +585,10 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
         header->priv->payload_size = size;
       }
       else
+      {
+        mmal_buffer_header_release(header);
         return false;
+      }
     }
 
     if (packet.dts != DVD_NOPTS_VALUE)
