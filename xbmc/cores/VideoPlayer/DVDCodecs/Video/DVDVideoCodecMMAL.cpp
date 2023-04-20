@@ -569,7 +569,7 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
     header->flags = MMAL_BUFFER_HEADER_FLAG_ZEROCOPY | MMAL_BUFFER_HEADER_FLAG_FRAME;
     header->length = (uint32_t)packet.iSize;
 
-    if (header->length < header->alloc_size)
+    if (header->length > header->alloc_size)
     {
       uint32_t size = VCOS_ALIGN_UP(header->length, 8192);
       MMALPort port = (MMALPort)header->priv->payload_context;
