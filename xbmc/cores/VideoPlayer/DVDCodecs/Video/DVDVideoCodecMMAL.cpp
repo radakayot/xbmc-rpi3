@@ -386,8 +386,7 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
   mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_INTERPOLATE_TIMESTAMPS,
                                   hints.ptsinvalid ? MMAL_TRUE : MMAL_FALSE);
 
-  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS,
-                                 -10); //DPB=3+9, 12 total
+  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS, -3);
 
   if (mmal_port_format_commit(m_input) != MMAL_SUCCESS)
   {
@@ -395,7 +394,7 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
     return false;
   }
 
-  m_input->buffer_num = 12;
+  m_input->buffer_num = 24;
   m_input->buffer_size = m_input->buffer_size_min;
 
   if (m_input->buffer_alignment_min > 0)
@@ -570,9 +569,9 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
     }
   }
 
+  uint32_t bufferCount = mmal_queue_length(m_inputPool->queue) - 1;
   std::unique_lock<CCriticalSection> lock(m_sendLock);
   MMALBufferHeader header = nullptr;
-  uint32_t bufferCount = mmal_queue_length(m_inputPool->queue) - 1;
   if (bufferCount > 0 && (header = mmal_queue_get(m_inputPool->queue)) != NULL)
   {
     MMALStatus status = MMAL_SUCCESS;
