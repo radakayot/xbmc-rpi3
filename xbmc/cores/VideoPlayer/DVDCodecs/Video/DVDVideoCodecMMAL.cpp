@@ -558,7 +558,6 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
     return SendEndOfStream();
   else if (m_input->buffer_size < (uint32_t)packet.iSize)
   {
-
     std::unique_lock<CCriticalSection> lock(m_portLock);
     m_input->buffer_size = VCOS_ALIGN_UP((uint32_t)packet.iSize, 8192);
     if (m_input->buffer_alignment_min > 0)
@@ -626,6 +625,8 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
     if (status == MMAL_SUCCESS)
       return true;
   }
+  else
+    return false;
   m_state = MCS_RESET;
   CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to send buffer to input port", __FUNCTION__);
   return false;
