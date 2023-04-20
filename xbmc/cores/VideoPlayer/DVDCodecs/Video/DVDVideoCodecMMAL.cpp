@@ -395,7 +395,7 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
     return false;
   }
 
-  m_input->buffer_num = MMAL_CODEC_NUM_BUFFERS - 1;
+  m_input->buffer_num = MMAL_CODEC_NUM_BUFFERS * 2;
   m_input->buffer_size = m_input->buffer_size_min;
 
   if (m_input->buffer_alignment_min > 0)
