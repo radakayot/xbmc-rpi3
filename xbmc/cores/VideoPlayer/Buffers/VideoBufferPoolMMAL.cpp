@@ -197,8 +197,7 @@ CVideoBufferPoolMMAL::CVideoBufferPoolMMAL()
         mmal_port_parameter_set_uint32(m_port, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
         mmal_port_parameter_set_boolean(m_port, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
         if (mmal_port_format_commit(m_port) == MMAL_SUCCESS)
-        {
-        }
+          return;
         else
           CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to commit port", __FUNCTION__);
       }
@@ -207,6 +206,7 @@ CVideoBufferPoolMMAL::CVideoBufferPoolMMAL()
     }
     else
       CLog::Log(LOGERROR, "CVideoBufferPoolMMAL::{} - failed to create component", __FUNCTION__);
+    m_component = nullptr;
   }
   else
   {
@@ -226,9 +226,9 @@ CVideoBufferPoolMMAL::~CVideoBufferPoolMMAL()
   m_all.clear();
 
   if (m_port)
-  {
     m_port = nullptr;
-  }
+
+  //We don't destroy the null_sink, it doesn't cost a lot of memory.
 }
 
 void CVideoBufferPoolMMAL::Release()

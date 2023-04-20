@@ -54,6 +54,7 @@ public:
   CDVDVideoCodec::VCReturn GetPicture(VideoPicture* pVideoPicture) override;
   const char* GetName() override { return m_name.c_str(); }
   unsigned GetAllowedReferences() override { return MMAL_CODEC_NUM_BUFFERS; }
+  unsigned GetConvergeCount() override { return 0; }
   void SetCodecControl(int flags) override;
   void SetSpeed(int iSpeed) override;
   bool GetCodecStats(double& pts, int& droppedFrames, int& skippedPics) override;
@@ -65,32 +66,26 @@ private:
   static void ProcessControlCallback(MMALPort port, MMALBufferHeader header);
   static void ProcessInputCallback(MMALPort port, MMALBufferHeader header);
   static void ProcessOutputCallback(MMALPort port, MMALBufferHeader header);
-  static void BufferReleaseCallback(CVideoBufferPoolMMAL* pool,
-                                    CVideoBufferMMAL* buffer,
-                                    void* userdata);
 
   bool Close();
   bool ConfigureCodec(uint8_t* extraData, uint32_t extraDataSize);
 
   bool SendEndOfStream();
-  void UpdateProcessInfo();
 
   std::atomic<MMALCodecState> m_state{MCS_UNINITIALIZED};
 
   std::string m_name;
-  std::string m_codecName;
   MMALComponent m_component;
 
   MMALPort m_input{nullptr};
   MMALPool m_inputPool{nullptr};
-
-  CCriticalSection m_portLock;
 
   MMALPort m_output{nullptr};
   MMALFormat m_portFormat{nullptr};
 
   CCriticalSection m_sendLock;
   CCriticalSection m_recvLock;
+  CCriticalSection m_portLock;
 
   int m_playbackSpeed{DVD_PLAYSPEED_NORMAL};
   int m_codecControlFlags{0};
@@ -98,8 +93,6 @@ private:
 
   int64_t m_ptsCurrent{MMAL_TIME_UNKNOWN};
   int32_t m_droppedFrames{-1};
-
-  uint32_t m_rejectedSize{0};
 
   uint32_t m_width{0};
   uint32_t m_height{0};
@@ -114,12 +107,10 @@ private:
   uint32_t m_fpsRate{0};
   uint32_t m_fpsScale{0};
 
-  bool m_dropped{false};
   std::deque<CVideoBufferMMAL*> m_buffers;
 
   XbmcThreads::ConditionVariable m_bufferCondition;
 
   CDVDStreamInfo m_hints;
-  //std::shared_ptr<IVideoBufferPool> m_bufferPool;
 };
 } // namespace MMAL

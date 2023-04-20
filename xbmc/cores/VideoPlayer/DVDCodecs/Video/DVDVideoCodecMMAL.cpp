@@ -134,7 +134,7 @@ void CDVDVideoCodecMMAL::ProcessOutputCallback(MMALPort port, MMALBufferHeader h
             codec->m_output->format->es->video.par.den = videoFormat->par.den;
           }
 
-          codec->m_output->buffer_num = MMAL_CODEC_NUM_BUFFERS + 1;
+          codec->m_output->buffer_num = MMAL_CODEC_NUM_BUFFERS;
           codec->m_output->buffer_size = args->buffer_size_recommended;
           mmal_buffer_header_mem_unlock(header);
           if (!codec->IsRunning())
@@ -161,6 +161,7 @@ void CDVDVideoCodecMMAL::ProcessOutputCallback(MMALPort port, MMALBufferHeader h
           std::unique_lock<CCriticalSection> lock(codec->m_recvLock);
           buffer->SetPortFormat(codec->m_output->format);
           codec->m_buffers.push_back(buffer);
+          codec->m_ptsCurrent = header->dts;
           lock.unlock();
           codec->m_bufferCondition.notifyAll();
         }
@@ -188,7 +189,6 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
 {
   MMALStatus status = MMAL_SUCCESS;
   m_name = "mmal";
-  m_codecName = "    ";
 
   status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_DECODER, &m_component);
   if (status == MMAL_SUCCESS)
@@ -312,63 +312,6 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
   m_state = MCS_UNINITIALIZED;
 }
 
-void CDVDVideoCodecMMAL::UpdateProcessInfo()
-{
-  m_format = CVideoBufferPoolMMAL::TranslatePortFormat(m_portFormat->encoding);
-  const char* pixFmtName = av_get_pix_fmt_name(m_format);
-  mmal_4cc_to_string(&m_codecName[0], m_codecName.size(), m_portFormat->encoding);
-  m_name = StringUtils::TrimRight(m_codecName) + std::string("-mmal");
-  StringUtils::ToLower(m_name);
-
-  m_fps = 0.0f;
-  m_aspect = 0.0f;
-  if (m_portFormat->es->video.frame_rate.num > 0 && m_portFormat->es->video.frame_rate.den > 0)
-    m_fps = (float)m_portFormat->es->video.frame_rate.num /
-            (float)m_portFormat->es->video.frame_rate.den;
-
-  if (m_portFormat->es->video.par.num > 0 && m_portFormat->es->video.par.den > 0)
-    m_aspect = (float)m_portFormat->es->video.par.num / (float)m_portFormat->es->video.par.den;
-
-  if (m_portFormat->es->video.crop.width > 0 && m_portFormat->es->video.crop.height > 0)
-  {
-    m_width = m_portFormat->es->video.crop.width;
-    m_height = m_portFormat->es->video.crop.height;
-  }
-  else
-  {
-    m_width = m_portFormat->es->video.width;
-    m_height = m_portFormat->es->video.height;
-  }
-
-  if (m_aspect > 0.0f)
-  {
-    m_displayWidth = (static_cast<uint32_t>(lrint(m_height * m_aspect))) & -3;
-    m_displayHeight = m_height;
-    if (m_displayWidth > m_width)
-    {
-      m_displayWidth = m_width;
-      m_displayHeight = (static_cast<uint32_t>(lrint(m_width / m_aspect))) & -3;
-    }
-  }
-  else
-  {
-    m_displayWidth = m_width;
-    m_displayHeight = m_height;
-  }
-
-  std::list<EINTERLACEMETHOD> intMethods;
-  intMethods.push_back(VS_INTERLACEMETHOD_NONE);
-  m_processInfo.UpdateDeinterlacingMethods(intMethods);
-
-  m_processInfo.SetVideoPixelFormat(pixFmtName ? pixFmtName : "");
-  m_processInfo.SetVideoDimensions(m_width, m_height);
-  m_processInfo.SetVideoDecoderName(m_name, true);
-  m_processInfo.SetVideoDeintMethod("none");
-  m_processInfo.SetVideoStereoMode("mono");
-  m_processInfo.SetVideoDAR(m_aspect);
-  m_processInfo.SetVideoFps(m_fps);
-}
-
 bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
 {
   if (m_state != MCS_INITIALIZED)
@@ -452,8 +395,8 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
     return false;
   }
 
-  m_input->buffer_num = 24;
-  m_input->buffer_size = 4096 * 24; //1024 * 64;
+  m_input->buffer_num = MMAL_CODEC_NUM_BUFFERS;
+  m_input->buffer_size = m_input->buffer_size_min;
 
   if (m_input->buffer_alignment_min > 0)
     m_input->buffer_size = VCOS_ALIGN_UP(m_input->buffer_size, m_input->buffer_alignment_min);
@@ -500,7 +443,7 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
     return false;
   }
 
-  m_output->buffer_num = MMAL_CODEC_NUM_BUFFERS + 1;
+  m_output->buffer_num = MMAL_CODEC_NUM_BUFFERS;
   m_output->buffer_size = m_output->buffer_size_recommended;
 
   if (mmal_port_enable(m_input, CDVDVideoCodecMMAL::ProcessInputCallback) != MMAL_SUCCESS)
@@ -604,78 +547,67 @@ bool CDVDVideoCodecMMAL::SendEndOfStream()
 
 bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
 {
-  uint32_t size = (uint32_t)packet.iSize;
-  uint8_t* data = packet.pData;
+
   MMALCodecState state = m_state;
 
   if (state == MCS_FLUSHING || state == MCS_ERROR)
     return false;
   else if (state == MCS_CLOSING || state == MCS_CLOSED)
     return true;
-  else if (data == nullptr || size == 0)
+  else if (packet.pData == nullptr || packet.iSize == 0)
     return SendEndOfStream();
-
-  uint32_t freeBytes = m_input->buffer_size * (mmal_queue_length(m_inputPool->queue) - 1);
-  if (size > freeBytes)
+  else if (m_input->buffer_size < (uint32_t)packet.iSize)
   {
-    m_rejectedSize = size;
-    return false;
+
+    std::unique_lock<CCriticalSection> lock(m_portLock);
+    m_input->buffer_size = VCOS_ALIGN_UP((uint32_t)packet.iSize, 8192);
+    if (m_input->buffer_alignment_min > 0)
+      m_input->buffer_size = VCOS_ALIGN_UP(m_input->buffer_size, m_input->buffer_alignment_min);
+    if (mmal_pool_resize(m_inputPool, m_input->buffer_num, m_input->buffer_size) != MMAL_SUCCESS)
+    {
+      m_state = MCS_RESET;
+      CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to resize buffer pool", __FUNCTION__);
+      return false;
+    }
   }
-  else
-    m_rejectedSize = 0;
 
   std::unique_lock<CCriticalSection> lock(m_sendLock);
-  int64_t ptsPacket = MMAL_TIME_UNKNOWN;
-  int64_t dtsPacket = MMAL_TIME_UNKNOWN;
-
-  if (packet.dts != DVD_NOPTS_VALUE)
-    dtsPacket = static_cast<int64_t>(packet.dts / DVD_TIME_BASE * AV_TIME_BASE);
-
-  if (!m_hints.ptsinvalid && packet.pts != DVD_NOPTS_VALUE)
-    ptsPacket = static_cast<int64_t>(packet.pts / DVD_TIME_BASE * AV_TIME_BASE);
-
-  MMALStatus status = MMAL_SUCCESS;
   MMALBufferHeader header = nullptr;
-  while (size > 0 && (header = mmal_queue_get(m_inputPool->queue)) != NULL)
+  uint32_t bufferCount = mmal_queue_length(m_inputPool->queue) - 1;
+  if (bufferCount > 0 && (header = mmal_queue_get(m_inputPool->queue)) != NULL)
   {
+    MMALStatus status = MMAL_SUCCESS;
     mmal_buffer_header_reset(header);
     header->cmd = 0;
-    header->flags = MMAL_BUFFER_HEADER_FLAG_ZEROCOPY;
+    header->flags = MMAL_BUFFER_HEADER_FLAG_ZEROCOPY | MMAL_BUFFER_HEADER_FLAG_FRAME;
+    header->length = (uint32_t)packet.iSize;
 
-    header->pts = ptsPacket;
-    header->dts = dtsPacket;
+    if (packet.dts != DVD_NOPTS_VALUE)
+      header->dts = static_cast<int64_t>(packet.dts / DVD_TIME_BASE * AV_TIME_BASE);
+    else
+      header->dts = MMAL_TIME_UNKNOWN;
 
-    if (size == (uint32_t)packet.iSize)
+    if (!m_hints.ptsinvalid && packet.pts != DVD_NOPTS_VALUE)
+      header->pts = static_cast<int64_t>(packet.pts / DVD_TIME_BASE * AV_TIME_BASE);
+    else
+      header->pts = MMAL_TIME_UNKNOWN;
+
+    if (state == MCS_FLUSHED)
     {
-      if (state == MCS_FLUSHED)
-      {
-        m_state = MCS_DECODING;
-        header->flags |= MMAL_BUFFER_HEADER_FLAG_DISCONTINUITY;
-      }
-      else if ((m_codecControlFlags & DVD_CODEC_CTRL_DROP) != 0)
-      {
-        header->flags |= MMAL_BUFFER_HEADER_FLAG_DECODEONLY;
-        m_dropped = true;
-        m_droppedFrames++;
-      }
-      else if (m_dropped)
-      {
-        header->flags |= MMAL_BUFFER_HEADER_FLAG_SEEK;
-        m_dropped = false;
-      }
-      header->flags |= MMAL_BUFFER_HEADER_FLAG_FRAME_START;
+      m_state = MCS_DECODING;
+      header->flags |= MMAL_BUFFER_HEADER_FLAG_DISCONTINUITY;
+    }
+    else if ((m_codecControlFlags & DVD_CODEC_CTRL_DROP) != 0)
+    {
+      header->flags |= MMAL_BUFFER_HEADER_FLAG_DECODEONLY;
+      m_droppedFrames++;
     }
 
-    if (size > header->alloc_size)
-      header->length = header->alloc_size;
-    else
-      header->length = size;
-
-    if (data)
+    if (packet.pData)
     {
       if (mmal_buffer_header_mem_lock(header) == MMAL_SUCCESS)
       {
-        memcpy(header->data, data, header->length);
+        memcpy(header->data, packet.pData, header->length);
         mmal_buffer_header_mem_unlock(header);
       }
       else
@@ -686,30 +618,16 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
       }
     }
 
-    size -= header->length;
-    data += header->length;
-
-    if (size == 0)
-      header->flags |= MMAL_BUFFER_HEADER_FLAG_FRAME_END;
-
     status = mmal_port_send_buffer(m_input, header);
 
     if (status == MMAL_EAGAIN)
       status = mmal_port_send_buffer(m_input, header);
 
-    if (status != MMAL_SUCCESS)
-    {
-      m_state = MCS_RESET;
-      CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to send buffer to input port",
-                __FUNCTION__);
-      return false;
-    }
+    if (status == MMAL_SUCCESS)
+      return true;
   }
-  if (size == 0)
-    return true;
-
   m_state = MCS_RESET;
-  CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to send complete frame", __FUNCTION__);
+  CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to send buffer to input port", __FUNCTION__);
   return false;
 }
 
@@ -802,8 +720,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
     {
       lock.unlock();
       uint32_t inputFree = mmal_queue_length(m_inputPool->queue);
-      if (rendered <= MMAL_CODEC_NUM_BUFFERS && inputFree > 1 &&
-          (m_input->buffer_size * (inputFree - 1)) > m_rejectedSize)
+      if (rendered <= MMAL_CODEC_NUM_BUFFERS && inputFree > 1)
       {
         if ((m_codecControlFlags & DVD_CODEC_CTRL_DRAIN) != 0)
           m_codecControlFlags &= ~DVD_CODEC_CTRL_DRAIN;
@@ -875,7 +792,6 @@ void CDVDVideoCodecMMAL::Reset()
     }
     m_ptsCurrent = MMAL_TIME_UNKNOWN;
     m_droppedFrames = -1;
-    m_dropped = false;
     if ((m_codecControlFlags & DVD_CODEC_CTRL_DRAIN) != 0)
       m_codecControlFlags &= ~DVD_CODEC_CTRL_DRAIN;
   }
@@ -894,9 +810,7 @@ void CDVDVideoCodecMMAL::SetSpeed(int iSpeed)
 bool CDVDVideoCodecMMAL::GetCodecStats(double& pts, int& droppedFrames, int& skippedPics)
 {
   if (m_ptsCurrent != MMAL_TIME_UNKNOWN)
-  {
     pts = static_cast<double>(m_ptsCurrent) * DVD_TIME_BASE / AV_TIME_BASE;
-  }
 
   if (m_droppedFrames != -1)
     droppedFrames = m_droppedFrames + 1;
@@ -924,8 +838,66 @@ void CDVDVideoCodecMMAL::Process()
       lock.unlock();
       if (mmal_format_full_copy(m_portFormat, m_output->format) == MMAL_SUCCESS)
       {
-        UpdateProcessInfo();
+        m_format = CVideoBufferPoolMMAL::TranslatePortFormat(m_portFormat->encoding);
+        m_name = std::string(av_fourcc2str(m_input->format->encoding) ?: "");
+        if (m_name.length() > 0)
+          m_name = StringUtils::TrimRight(m_name) + "-mmal";
+        else
+          m_name = "mmal";
+
+        StringUtils::ToLower(m_name);
+
+        m_fps = 0.0f;
+        m_aspect = 0.0f;
+        if (m_portFormat->es->video.frame_rate.num > 0 &&
+            m_portFormat->es->video.frame_rate.den > 0)
+          m_fps = (float)m_portFormat->es->video.frame_rate.num /
+                  (float)m_portFormat->es->video.frame_rate.den;
+
+        if (m_portFormat->es->video.par.num > 0 && m_portFormat->es->video.par.den > 0)
+          m_aspect =
+              (float)m_portFormat->es->video.par.num / (float)m_portFormat->es->video.par.den;
+
+        if (m_portFormat->es->video.crop.width > 0 && m_portFormat->es->video.crop.height > 0)
+        {
+          m_width = m_portFormat->es->video.crop.width;
+          m_height = m_portFormat->es->video.crop.height;
+        }
+        else
+        {
+          m_width = m_portFormat->es->video.width;
+          m_height = m_portFormat->es->video.height;
+        }
+
+        if (m_aspect > 0.0f)
+        {
+          m_displayWidth = (static_cast<uint32_t>(lrint(m_height * m_aspect))) & -3;
+          m_displayHeight = m_height;
+          if (m_displayWidth > m_width)
+          {
+            m_displayWidth = m_width;
+            m_displayHeight = (static_cast<uint32_t>(lrint(m_width / m_aspect))) & -3;
+          }
+        }
+        else
+        {
+          m_displayWidth = m_width;
+          m_displayHeight = m_height;
+        }
+
         bufferPool->Configure(m_format, m_output->buffer_size);
+
+        std::list<EINTERLACEMETHOD> intMethods;
+        intMethods.push_back(VS_INTERLACEMETHOD_NONE);
+        m_processInfo.UpdateDeinterlacingMethods(intMethods);
+
+        m_processInfo.SetVideoPixelFormat(av_get_pix_fmt_name(m_format) ?: "");
+        m_processInfo.SetVideoDimensions(m_width, m_height);
+        m_processInfo.SetVideoDecoderName(m_name, true);
+        m_processInfo.SetVideoDeintMethod("none");
+        m_processInfo.SetVideoStereoMode("mono");
+        m_processInfo.SetVideoDAR(m_aspect);
+        m_processInfo.SetVideoFps(m_fps);
         m_state = state = MCS_DECODING;
       }
       else
