@@ -558,10 +558,12 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
   else if (packet.pData == nullptr || packet.iSize == 0)
     return SendEndOfStream();
 
-  uint32_t bufferCount = mmal_queue_length(m_inputPool->queue) - 1;
   std::unique_lock<CCriticalSection> lock(m_sendLock);
+  if (mmal_queue_length(m_inputPool->queue) <= 1)
+    return false;
+
   MMALBufferHeader header = nullptr;
-  if (bufferCount > 0 && (header = mmal_queue_get(m_inputPool->queue)) != NULL)
+  if ((header = mmal_queue_get(m_inputPool->queue)) != NULL)
   {
     MMALStatus status = MMAL_SUCCESS;
     mmal_buffer_header_reset(header);
@@ -732,10 +734,10 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
     }
     else if (state != MCS_CLOSING)
     {
-      lock.unlock();
       uint32_t inputFree = mmal_queue_length(m_inputPool->queue);
       if (rendered <= MMAL_CODEC_NUM_BUFFERS && inputFree > 1)
       {
+        lock.unlock();
         if ((m_codecControlFlags & DVD_CODEC_CTRL_DRAIN) != 0)
           m_codecControlFlags &= ~DVD_CODEC_CTRL_DRAIN;
         result = VC_BUFFER;
