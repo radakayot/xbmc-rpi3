@@ -23,6 +23,7 @@
 
 #include <float.h>
 
+#include <interface/mmal/core/mmal_buffer_private.h>
 #include <interface/mmal/mmal_events.h>
 #include <interface/mmal/util/mmal_default_components.h>
 #include <interface/mmal/util/mmal_util.h>
@@ -386,7 +387,8 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
   mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_INTERPOLATE_TIMESTAMPS,
                                   hints.ptsinvalid ? MMAL_TRUE : MMAL_FALSE);
 
-  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS, -3);
+  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS,
+                                 -1 - MMAL_CODEC_NUM_BUFFERS);
 
   if (mmal_port_format_commit(m_input) != MMAL_SUCCESS)
   {
@@ -394,8 +396,8 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
     return false;
   }
 
-  m_input->buffer_num = 24;
-  m_input->buffer_size = m_input->buffer_size_min;
+  m_input->buffer_num = 12;
+  m_input->buffer_size = m_input->buffer_size_recommended;
 
   if (m_input->buffer_alignment_min > 0)
     m_input->buffer_size = VCOS_ALIGN_UP(m_input->buffer_size, m_input->buffer_alignment_min);
@@ -555,19 +557,6 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
     return true;
   else if (packet.pData == nullptr || packet.iSize == 0)
     return SendEndOfStream();
-  else if (m_input->buffer_size < (uint32_t)packet.iSize)
-  {
-    std::unique_lock<CCriticalSection> lock(m_portLock);
-    m_input->buffer_size = VCOS_ALIGN_UP((uint32_t)packet.iSize, 8192);
-    if (m_input->buffer_alignment_min > 0)
-      m_input->buffer_size = VCOS_ALIGN_UP(m_input->buffer_size, m_input->buffer_alignment_min);
-    if (mmal_pool_resize(m_inputPool, m_input->buffer_num, m_input->buffer_size) != MMAL_SUCCESS)
-    {
-      m_state = MCS_RESET;
-      CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to resize buffer pool", __FUNCTION__);
-      return false;
-    }
-  }
 
   uint32_t bufferCount = mmal_queue_length(m_inputPool->queue) - 1;
   std::unique_lock<CCriticalSection> lock(m_sendLock);
@@ -579,6 +568,25 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
     header->cmd = 0;
     header->flags = MMAL_BUFFER_HEADER_FLAG_ZEROCOPY | MMAL_BUFFER_HEADER_FLAG_FRAME;
     header->length = (uint32_t)packet.iSize;
+
+    if (header->length < header->alloc_size)
+    {
+      uint32_t size = VCOS_ALIGN_UP(header->length, 8192);
+      MMALPort port = (MMALPort)header->priv->payload_context;
+      MMALPortPrivate priv = (MMALPortPrivate)port->priv;
+      uint8_t* payload = priv->pf_payload_alloc(port, size);
+      if (payload)
+      {
+        if (header->priv->pf_payload_free && header->priv->payload_size > 0)
+          header->priv->pf_payload_free(header->priv->payload_context, header->priv->payload);
+        header->data = payload;
+        header->alloc_size = size;
+        header->priv->payload = payload;
+        header->priv->payload_size = size;
+      }
+      else
+        return false;
+    }
 
     if (packet.dts != DVD_NOPTS_VALUE)
       header->dts = static_cast<int64_t>(packet.dts / DVD_TIME_BASE * AV_TIME_BASE);
@@ -610,6 +618,7 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
       }
       else
       {
+        mmal_buffer_header_release(header);
         CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to lock memory", __FUNCTION__);
         m_state = MCS_RESET;
         return false;
@@ -623,6 +632,8 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
 
     if (status == MMAL_SUCCESS)
       return true;
+    else
+      mmal_buffer_header_release(header);
   }
   else
     return false;
@@ -729,6 +740,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
       }
       else
       {
+        m_bufferCondition.wait(lock, 20ms);
         CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - there is enogh buffer", __FUNCTION__);
       }
     }
