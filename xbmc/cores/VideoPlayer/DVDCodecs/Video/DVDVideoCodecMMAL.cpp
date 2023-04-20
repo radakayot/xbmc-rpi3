@@ -387,8 +387,7 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
   mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_INTERPOLATE_TIMESTAMPS,
                                   hints.ptsinvalid ? MMAL_TRUE : MMAL_FALSE);
 
-  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS,
-                                 -1 - MMAL_CODEC_NUM_BUFFERS);
+  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS, -10);
 
   if (mmal_port_format_commit(m_input) != MMAL_SUCCESS)
   {
@@ -396,8 +395,8 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
     return false;
   }
 
-  m_input->buffer_num = 12;
-  m_input->buffer_size = m_input->buffer_size_recommended;
+  m_input->buffer_num = MMAL_CODEC_NUM_BUFFERS - 1;
+  m_input->buffer_size = m_input->buffer_size_min;
 
   if (m_input->buffer_alignment_min > 0)
     m_input->buffer_size = VCOS_ALIGN_UP(m_input->buffer_size, m_input->buffer_alignment_min);
@@ -614,20 +613,17 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
       m_droppedFrames++;
     }
 
-    if (packet.pData)
+    if (mmal_buffer_header_mem_lock(header) == MMAL_SUCCESS)
     {
-      if (mmal_buffer_header_mem_lock(header) == MMAL_SUCCESS)
-      {
-        memcpy(header->data, packet.pData, header->length);
-        mmal_buffer_header_mem_unlock(header);
-      }
-      else
-      {
-        mmal_buffer_header_release(header);
-        CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to lock memory", __FUNCTION__);
-        m_state = MCS_RESET;
-        return false;
-      }
+      memcpy(header->data, packet.pData, header->length);
+      mmal_buffer_header_mem_unlock(header);
+    }
+    else
+    {
+      mmal_buffer_header_release(header);
+      CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to lock memory", __FUNCTION__);
+      m_state = MCS_RESET;
+      return false;
     }
 
     status = mmal_port_send_buffer(m_input, header);
