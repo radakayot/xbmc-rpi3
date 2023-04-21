@@ -170,7 +170,7 @@ void CDVDVideoCodecMMAL::ProcessOutputCallback(MMALPort port, MMALBufferHeader h
         {
           buffer->Release();
           codec->m_bStop = true;
-          //codec->Close();
+          codec->Close();
         }
         else
           buffer->Release();
@@ -522,11 +522,16 @@ bool CDVDVideoCodecMMAL::ConfigureCodec(uint8_t* extraData, uint32_t extraSize)
   return true;
 }
 
-bool CDVDVideoCodecMMAL::SendEndOfStream()
+bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
 {
+
   MMALCodecState state = m_state;
 
-  if (state == MCS_DECODING)
+  if (state == MCS_FLUSHING || state == MCS_ERROR)
+    return false;
+  else if (state == MCS_CLOSING || state == MCS_CLOSED)
+    return true;
+  else if (packet.pData == nullptr || packet.iSize == 0)
   {
     std::unique_lock<CCriticalSection> lock(m_sendLock);
     MMALBufferHeader header = mmal_queue_get(m_inputPool->queue);
@@ -541,21 +546,8 @@ bool CDVDVideoCodecMMAL::SendEndOfStream()
       CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to send eos signal", __FUNCTION__);
       return false;
     }
-  }
-  return true;
-}
-
-bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
-{
-
-  MMALCodecState state = m_state;
-
-  if (state == MCS_FLUSHING || state == MCS_ERROR)
-    return false;
-  else if (state == MCS_CLOSING || state == MCS_CLOSED)
     return true;
-  else if (packet.pData == nullptr || packet.iSize == 0)
-    return SendEndOfStream();
+  }
 
   std::unique_lock<CCriticalSection> lock(m_sendLock);
   if (mmal_queue_length(m_inputPool->queue) <= 1)
@@ -657,11 +649,6 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
     result = VC_ERROR;
     CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - decoder error", __FUNCTION__);
   }
-  else if (state == MCS_CLOSED)
-  {
-    result = VC_EOF;
-    CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - end of stream", __FUNCTION__);
-  }
   else if (state == MCS_OPENED)
   {
     result = VC_BUFFER;
@@ -732,7 +719,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
       CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - returning frame", __FUNCTION__);
       result = VC_PICTURE;
     }
-    else if (state != MCS_CLOSING)
+    else if (state != MCS_CLOSING && state != MCS_CLOSED)
     {
       uint32_t inputFree = mmal_queue_length(m_inputPool->queue);
       if (rendered <= MMAL_CODEC_NUM_BUFFERS && inputFree > 1)
@@ -748,6 +735,11 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
         //m_bufferCondition.wait(lock, 20ms);
         CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - there is enogh buffer", __FUNCTION__);
       }
+    }
+    else if (state == MCS_CLOSED)
+    {
+      result = VC_EOF;
+      CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - end of stream", __FUNCTION__);
     }
   }
   return result;
