@@ -640,7 +640,6 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
   else if (state == MCS_OPENED)
   {
     result = VC_BUFFER;
-    CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - need more buffer", __FUNCTION__);
   }
   else if (state == MCS_RESET)
   {
