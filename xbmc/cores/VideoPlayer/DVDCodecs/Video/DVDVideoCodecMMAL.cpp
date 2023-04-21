@@ -253,7 +253,7 @@ CDVDVideoCodecMMAL::~CDVDVideoCodecMMAL()
 {
   m_bStop = true;
 
-  if (m_state != MCS_INITIALIZED && m_state != MCS_FLUSHED)
+  if (m_state != MCS_INITIALIZED && m_state != MCS_FLUSHED && m_state != MCS_ERROR)
     m_state = MCS_CLOSING;
 
   if (IsRunning())
@@ -647,6 +647,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
   }
   else if (state == MCS_ERROR)
   {
+    m_bStop = true;
     result = VC_EOF;
     CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - decoder error, closing stream", __FUNCTION__);
   }
