@@ -215,7 +215,7 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
       m_format = AV_PIX_FMT_NONE;
 
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_DECODE_ERROR_CONCEALMENT,
-                                      MMAL_FALSE);
+                                      MMAL_TRUE);
       mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_NO_IMAGE_PADDING, MMAL_TRUE);
@@ -527,13 +527,14 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
 {
   MMALCodecState state = m_state;
 
-  if (state == MCS_FLUSHING || state == MCS_ERROR)
+  if (state == MCS_FLUSHING)
     return false;
   else if (state == MCS_CLOSING || state == MCS_CLOSED)
     return true;
-  else if (packet.pData == nullptr || packet.iSize == 0)
+
+  std::unique_lock<CCriticalSection> lock(m_sendLock);
+  if (packet.pData == nullptr || packet.iSize == 0)
   {
-    std::unique_lock<CCriticalSection> lock(m_sendLock);
     MMALBufferHeader header = mmal_queue_get(m_inputPool->queue);
     mmal_buffer_header_reset(header);
     header->cmd = 0;
@@ -548,8 +549,6 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
     }
     return true;
   }
-
-  std::unique_lock<CCriticalSection> lock(m_sendLock);
 
   if (mmal_queue_length(m_inputPool->queue) <= 1)
     return false;
