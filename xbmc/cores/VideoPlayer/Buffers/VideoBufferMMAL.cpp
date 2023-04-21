@@ -186,6 +186,11 @@ void CVideoBufferMMAL::Release()
   {
     mmal_buffer_header_release(m_header);
     m_refCount = m_header->priv->refcount;
+    if (m_refCount == 0 && !m_pool)
+    {
+      vcos_free((void*)m_header);
+      m_header = nullptr;
+    }
   }
 }
 
