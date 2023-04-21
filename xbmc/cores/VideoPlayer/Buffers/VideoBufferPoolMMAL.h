@@ -28,6 +28,8 @@ extern "C"
 #include <libavutil/pixfmt.h>
 }
 
+#define mmal_component_set_priority(component, priority) (*(int*)((uint8_t*)component->priv + 28) = priority)
+
 namespace MMAL
 {
 class CVideoBufferPoolMMAL : public IVideoBufferPool

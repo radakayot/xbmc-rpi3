@@ -195,10 +195,9 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
   status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_DECODER, &m_component);
   if (status == MMAL_SUCCESS)
   {
+    mmal_component_set_priority(m_component, VCOS_THREAD_PRI_HIGHEST - VCOS_THREAD_PRI_INCREASE);
     if (m_component->is_enabled != 0)
       mmal_component_disable(m_component);
-
-    *(int*)((uint8_t*)m_component->priv + 28) = VCOS_THREAD_PRI_ABOVE_NORMAL;
 
     m_component->control->userdata = (MMALPortUserData)this;
     status = mmal_port_enable(m_component->control, CDVDVideoCodecMMAL::ProcessControlCallback);
