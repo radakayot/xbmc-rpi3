@@ -560,54 +560,36 @@ void CRendererMMAL::RenderUpdate(
 
 bool CRendererMMAL::Flush(bool saveBuffers)
 {
-  MMALRendererState state = m_state;
-  bool flush = false;
-
-  m_state = MRS_FLUSHING;
-  std::unique_lock<CCriticalSection> lock(m_bufferLock);
-
-  for (int i = 0; i < MMAL_RENDERER_NUM_BUFFERS; i++)
+  if (!saveBuffers)
   {
-    if (m_buffers[i] != nullptr)
+    MMALRendererState state = m_state;
+    m_state = MRS_FLUSHING;
+    std::unique_lock<CCriticalSection> lock(m_bufferLock);
+    bool flush = false;
+    for (int i = 0; i < MMAL_RENDERER_NUM_BUFFERS; i++)
     {
-      if (!m_buffers[i]->IsRendering())
+      if (m_buffers[i] != nullptr)
       {
-        if (!saveBuffers)
+        if (!m_buffers[i]->IsRendering())
         {
           m_buffers[i]->Release();
           m_buffers[i] = nullptr;
         }
+        else
+          flush = true;
       }
-      else
-        flush = true;
     }
-  }
-
-  if (state != MRS_FLUSHED && m_port->is_enabled != 0 && flush)
-  {
-    //if (((MMALPortPrivate)m_port->priv)->pf_flush(m_port) != MMAL_SUCCESS)
-    if (!saveBuffers)
+    if (state != MRS_FLUSHED && m_port->is_enabled != 0 && flush)
     {
+      std::unique_lock<CCriticalSection> lock(m_portLock);
       CLog::Log(LOGDEBUG, "CRendererMMAL::{} - disabling input port", __FUNCTION__);
       if (mmal_port_disable(m_port) != MMAL_SUCCESS)
         CLog::Log(LOGERROR, "CRendererMMAL::{} - failed to disable input port", __FUNCTION__);
       else
         CLog::Log(LOGDEBUG, "CRendererMMAL::{} - disabled input port", __FUNCTION__);
     }
-    /*
-    else
-    {
-      CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushing input port", __FUNCTION__);
-      if (mmal_port_flush(m_port) != MMAL_SUCCESS)
-        CLog::Log(LOGERROR, "CRendererMMAL::{} - failed to flush input port", __FUNCTION__);
-      else
-        CLog::Log(LOGDEBUG, "CRendererMMAL::{} - flushed input port", __FUNCTION__);
-    }
-    */
   }
-
   m_state = MRS_FLUSHED;
-
   return saveBuffers;
 }
 
