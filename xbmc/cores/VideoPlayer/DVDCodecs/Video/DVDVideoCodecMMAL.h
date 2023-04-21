@@ -55,8 +55,8 @@ public:
   const char* GetName() override { return m_name.c_str(); }
   unsigned GetAllowedReferences() override { return MMAL_CODEC_NUM_BUFFERS; }
   unsigned GetConvergeCount() override { return 0; }
-  void SetCodecControl(int flags) override;
-  void SetSpeed(int iSpeed) override;
+  void SetCodecControl(int flags) override { m_codecControlFlags = flags; }
+  void SetSpeed(int iSpeed) override { m_playbackSpeed = iSpeed; }
   bool GetCodecStats(double& pts, int& droppedFrames, int& skippedPics) override;
 
 protected:
@@ -67,10 +67,8 @@ private:
   static void ProcessInputCallback(MMALPort port, MMALBufferHeader header);
   static void ProcessOutputCallback(MMALPort port, MMALBufferHeader header);
 
-  bool Close();
   bool ConfigureCodec(uint8_t* extraData, uint32_t extraDataSize);
-
-  bool SendEndOfStream();
+  bool Close();
 
   std::atomic<MMALCodecState> m_state{MCS_UNINITIALIZED};
 
