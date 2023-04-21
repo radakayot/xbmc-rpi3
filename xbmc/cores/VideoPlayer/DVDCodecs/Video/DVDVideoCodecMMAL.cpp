@@ -556,7 +556,7 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
   if (mmal_queue_length(m_inputPool->queue) <= 1)
     return false;
 
-  if ((header = mmal_queue_get(m_inputPool->queue)) != NULL)
+  if ((header = mmal_queue_get(m_inputPool->queue)) == NULL)
     return false;
 
   mmal_buffer_header_reset(header);
