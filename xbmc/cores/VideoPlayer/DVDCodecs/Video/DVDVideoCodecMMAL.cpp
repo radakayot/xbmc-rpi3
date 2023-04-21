@@ -387,7 +387,7 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
   mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_INTERPOLATE_TIMESTAMPS,
                                   hints.ptsinvalid ? MMAL_TRUE : MMAL_FALSE);
 
-  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS, -10);
+  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS, -MMAL_CODEC_NUM_BUFFERS);
 
   if (mmal_port_format_commit(m_input) != MMAL_SUCCESS)
   {
