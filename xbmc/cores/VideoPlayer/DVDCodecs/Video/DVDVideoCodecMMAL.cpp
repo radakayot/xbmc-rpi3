@@ -91,6 +91,7 @@ void CDVDVideoCodecMMAL::ProcessControlCallback(MMALPort port, MMALBufferHeader 
     if (status != MMAL_EAGAIN)
     {
       codec->m_state = MCS_ERROR;
+      codec->m_bStop = true;
       CLog::Log(LOGWARNING, "CDVDVideoCodecMMAL::{} - decoder error reported: {}", __FUNCTION__,
                 mmal_status_to_string(status));
     }
