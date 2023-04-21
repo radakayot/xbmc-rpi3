@@ -28,7 +28,16 @@ extern "C"
 #include <libavutil/pixfmt.h>
 }
 
-#define mmal_component_set_priority(component, priority) (*(int*)((uint8_t*)component->priv + 28) = priority)
+#define mmal_component_set_priority(component, priority) \
+  (*(int*)((uint8_t*)component->priv + 28) = priority)
+#define thread_set_priority(priority) \
+  { \
+    struct sched_param sp \
+    { \
+      .sched_priority = priority \
+    }; \
+    pthread_setschedparam(pthread_self(), SCHED_OTHER, &sp); \
+  }
 
 namespace MMAL
 {

@@ -807,6 +807,8 @@ void CDVDVideoCodecMMAL::Process()
   MMALCodecState state = m_state;
   CVideoBufferMMAL* buffer = nullptr;
 
+  thread_set_priority(VCOS_THREAD_PRI_MAX - VCOS_THREAD_PRI_INCREASE);
+
   if (state == MCS_OPENED)
   {
     if (m_output->format->es->video.color_space == MMAL_COLOR_SPACE_UNKNOWN)

@@ -596,19 +596,8 @@ void CDVDVideoCodecFFmpegMMAL::Process()
   uint32_t available = 0;
   AVFrame* frame = av_frame_alloc();
   CVideoBufferMMAL* buffer = nullptr;
-  pthread_t tid = pthread_self();
-  if (tid)
-  {
-    int policy;
-    struct sched_param param;
-    pthread_getschedparam(tid, &policy, &param);
-    if (policy != SCHED_FIFO)
-    {
-      param.sched_priority = sched_get_priority_max(SCHED_FIFO) - 1;
-      pthread_setschedparam(tid, SCHED_FIFO, &param);
-    }
-  }
-
+  
+  thread_set_priority(VCOS_THREAD_PRI_MAX - VCOS_THREAD_PRI_INCREASE);
   //CLog::Log(LOGDEBUG, "CDVDVideoCodecFFmpegMMAL::{} - decoder thread started", __FUNCTION__);
   while (!m_bStop && (state == MCS_DECODING || state == MCS_FLUSHING || state == MCS_CLOSING ||
                       state == MCS_FLUSHED))
