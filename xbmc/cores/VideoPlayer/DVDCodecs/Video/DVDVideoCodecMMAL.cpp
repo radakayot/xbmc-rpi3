@@ -162,9 +162,10 @@ void CDVDVideoCodecMMAL::ProcessOutputCallback(MMALPort port, MMALBufferHeader h
           std::unique_lock<CCriticalSection> lock(codec->m_recvLock);
           buffer->SetPortFormat(codec->m_output->format);
           codec->m_buffers.push_back(buffer);
-          codec->m_ptsCurrent = header->dts;
           lock.unlock();
           codec->m_bufferCondition.notifyAll();
+          if (header->pts != MMAL_TIME_UNKNOWN)
+            codec->m_ptsCurrent = header->pts;
         }
         else if (state == MCS_CLOSING)
         {
@@ -214,11 +215,13 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
       m_format = AV_PIX_FMT_NONE;
 
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_DECODE_ERROR_CONCEALMENT,
-                                      MMAL_TRUE);
+                                      MMAL_FALSE);
       mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_NO_IMAGE_PADDING, MMAL_TRUE);
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_TIMESTAMP_FIFO, MMAL_TRUE);
+      mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS,
+                                     -MMAL_CODEC_NUM_BUFFERS);
 
       mmal_port_parameter_set_uint32(m_output, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
       mmal_port_parameter_set_boolean(m_output, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
@@ -386,9 +389,6 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
 
   mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_INTERPOLATE_TIMESTAMPS,
                                   hints.ptsinvalid ? MMAL_TRUE : MMAL_FALSE);
-
-  mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS,
-                                 -MMAL_CODEC_NUM_BUFFERS);
 
   if (mmal_port_format_commit(m_input) != MMAL_SUCCESS)
   {
@@ -709,21 +709,17 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
 
       result = VC_PICTURE;
     }
-    else if (state != MCS_CLOSING && state != MCS_CLOSED)
-    {
-      uint32_t inputFree = mmal_queue_length(m_inputPool->queue);
-      if (rendered <= MMAL_CODEC_NUM_BUFFERS && inputFree > 1)
-      {
-        lock.unlock();
-        if ((m_codecControlFlags & DVD_CODEC_CTRL_DRAIN) != 0)
-          m_codecControlFlags &= ~DVD_CODEC_CTRL_DRAIN;
-        result = VC_BUFFER;
-      }
-    }
     else if (state == MCS_CLOSED)
     {
       result = VC_EOF;
       CLog::Log(LOGDEBUG, "CDVDVideoCodecMMAL::{} - end of stream", __FUNCTION__);
+    }
+    else if (rendered <= MMAL_CODEC_NUM_BUFFERS && state != MCS_CLOSING &&
+             mmal_queue_length(m_inputPool->queue) > 1)
+    {
+      if ((m_codecControlFlags & DVD_CODEC_CTRL_DRAIN) != 0)
+        m_codecControlFlags &= ~DVD_CODEC_CTRL_DRAIN;
+      result = VC_BUFFER;
     }
   }
   return result;
