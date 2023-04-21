@@ -533,9 +533,12 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
     return true;
 
   std::unique_lock<CCriticalSection> lock(m_sendLock);
+  MMALBufferHeader header = nullptr;
+
   if (packet.pData == nullptr || packet.iSize == 0)
   {
-    MMALBufferHeader header = mmal_queue_get(m_inputPool->queue);
+    if ((header = mmal_queue_get(m_inputPool->queue)) == NULL)
+      return false;
     mmal_buffer_header_reset(header);
     header->cmd = 0;
     header->flags = MMAL_BUFFER_HEADER_FLAG_EOS;
@@ -553,9 +556,7 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
   if (mmal_queue_length(m_inputPool->queue) <= 1)
     return false;
 
-  MMALBufferHeader header = mmal_queue_get(m_inputPool->queue);
-
-  if (!header)
+  if ((header = mmal_queue_get(m_inputPool->queue)) != NULL)
     return false;
 
   mmal_buffer_header_reset(header);
@@ -869,7 +870,6 @@ void CDVDVideoCodecMMAL::Process()
         std::list<EINTERLACEMETHOD> intMethods;
         intMethods.push_back(VS_INTERLACEMETHOD_NONE);
         m_processInfo.UpdateDeinterlacingMethods(intMethods);
-
         m_processInfo.SetVideoPixelFormat(av_get_pix_fmt_name(m_format) ?: "");
         m_processInfo.SetVideoDimensions(m_width, m_height);
         m_processInfo.SetVideoDecoderName(m_name, true);
