@@ -196,7 +196,7 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
   status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_DECODER, &m_component);
   if (status == MMAL_SUCCESS)
   {
-    mmal_component_set_priority(m_component, VCOS_THREAD_PRI_HIGHEST - VCOS_THREAD_PRI_INCREASE);
+    mmal_component_set_priority(m_component, SCHED_RR, MMAL_THREAD_PRI_HIGH);
     if (m_component->is_enabled != 0)
       mmal_component_disable(m_component);
 
@@ -807,7 +807,7 @@ void CDVDVideoCodecMMAL::Process()
   MMALCodecState state = m_state;
   CVideoBufferMMAL* buffer = nullptr;
 
-  thread_set_priority(VCOS_THREAD_PRI_MAX - VCOS_THREAD_PRI_INCREASE);
+  thread_set_priority(SCHED_RR, MMAL_THREAD_PRI_HIGH);
 
   if (state == MCS_OPENED)
   {

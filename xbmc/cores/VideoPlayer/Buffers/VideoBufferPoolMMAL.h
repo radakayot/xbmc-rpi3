@@ -28,15 +28,32 @@ extern "C"
 #include <libavutil/pixfmt.h>
 }
 
-#define mmal_component_set_priority(component, priority) \
-  (*(int*)((uint8_t*)component->priv + 28) = priority)
-#define thread_set_priority(priority) \
+#define MMAL_THREAD_PRI_MIN (sched_get_priority_min(SCHED_RR))
+#define MMAL_THREAD_PRI_MAX (sched_get_priority_max(SCHED_RR))
+#define MMAL_THREAD_PRI_NORMAL ((MMAL_THREAD_PRI_MAX + MMAL_THREAD_PRI_MIN) / 2)
+#define MMAL_THREAD_PRI_HIGH \
+  (MMAL_THREAD_PRI_NORMAL + ((MMAL_THREAD_PRI_MAX - MMAL_THREAD_PRI_NORMAL) / 2))
+#define MMAL_THREAD_PRI_LOW \
+  (MMAL_THREAD_PRI_NORMAL - ((MMAL_THREAD_PRI_NORMAL - MMAL_THREAD_PRI_MIN) / 2))
+
+#define mmal_component_set_priority(component, policy, priority) \
   { \
     struct sched_param sp \
     { \
       .sched_priority = priority \
     }; \
-    pthread_setschedparam(pthread_self(), SCHED_OTHER, &sp); \
+    *(int*)((uint8_t*)component->priv + 28) = priority; \
+    pthread_setschedparam(((VCOS_THREAD_T*)((uint8_t*)component->priv + 36))->thread, policy, \
+                          &sp); \
+  }
+
+#define thread_set_priority(policy, priority) \
+  { \
+    struct sched_param sp \
+    { \
+      .sched_priority = priority \
+    }; \
+    pthread_setschedparam(pthread_self(), policy, &sp); \
   }
 
 namespace MMAL
