@@ -38,13 +38,7 @@ extern "C"
 
 #define mmal_component_set_priority(component, policy, priority) \
   { \
-    struct sched_param sp \
-    { \
-      .sched_priority = priority \
-    }; \
     *(int*)((uint8_t*)component->priv + 28) = priority; \
-    pthread_setschedparam(((VCOS_THREAD_T*)((uint8_t*)component->priv + 36))->thread, policy, \
-                          &sp); \
   }
 
 #define thread_set_priority(policy, priority) \
