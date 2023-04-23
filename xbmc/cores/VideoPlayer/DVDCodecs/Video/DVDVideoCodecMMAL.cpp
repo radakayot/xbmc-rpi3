@@ -140,7 +140,18 @@ void CDVDVideoCodecMMAL::ProcessOutputCallback(MMALPort port, MMALBufferHeader h
           codec->m_output->buffer_size = args->buffer_size_recommended;
           mmal_buffer_header_mem_unlock(header);
           if (!codec->IsRunning())
+          {
+            pthread_t t = pthread_self();
+            struct sched_param sp;
+            int p = SCHED_FIFO;
+            if (pthread_getschedparam(t, &p, &sp) == 0)
+            {
+              p = SCHED_FIFO;
+              sp.sched_priority = sched_get_priority_max(p);
+              pthread_setschedparam(t, p, &sp);
+            }
             codec->Create(false);
+          }
         }
         else
         {
@@ -196,7 +207,6 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
   status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_DECODER, &m_component);
   if (status == MMAL_SUCCESS)
   {
-    mmal_component_set_priority(m_component, SCHED_RR, MMAL_THREAD_PRI_HIGH);
     if (m_component->is_enabled != 0)
       mmal_component_disable(m_component);
 
@@ -220,6 +230,8 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_NO_IMAGE_PADDING, MMAL_TRUE);
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_TIMESTAMP_FIFO, MMAL_TRUE);
+      mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_VALIDATE_TIMESTAMPS,
+                                      MMAL_FALSE);
       mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS,
                                      -MMAL_CODEC_NUM_BUFFERS);
 
@@ -684,7 +696,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
       pVideoPicture->iDisplayWidth = m_displayWidth;
       pVideoPicture->iDisplayHeight = m_displayHeight;
 
-      pVideoPicture->color_range = m_hints.colorRange == AVCOL_RANGE_JPEG;
+      pVideoPicture->color_range = m_hints.colorRange != AVCOL_RANGE_MPEG;
       pVideoPicture->color_primaries = m_hints.colorPrimaries;
       pVideoPicture->color_transfer = m_hints.colorTransferCharacteristic;
       pVideoPicture->color_space = m_hints.colorSpace;
@@ -807,7 +819,7 @@ void CDVDVideoCodecMMAL::Process()
   MMALCodecState state = m_state;
   CVideoBufferMMAL* buffer = nullptr;
 
-  thread_set_priority(SCHED_RR, MMAL_THREAD_PRI_HIGH);
+  SetPriority(ThreadPriority::HIGHEST);
 
   if (state == MCS_OPENED)
   {

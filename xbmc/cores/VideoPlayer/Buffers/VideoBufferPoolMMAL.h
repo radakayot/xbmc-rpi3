@@ -28,28 +28,6 @@ extern "C"
 #include <libavutil/pixfmt.h>
 }
 
-#define MMAL_THREAD_PRI_MIN (sched_get_priority_min(SCHED_RR))
-#define MMAL_THREAD_PRI_MAX (sched_get_priority_max(SCHED_RR))
-#define MMAL_THREAD_PRI_NORMAL ((MMAL_THREAD_PRI_MAX + MMAL_THREAD_PRI_MIN) / 2)
-#define MMAL_THREAD_PRI_HIGH \
-  (MMAL_THREAD_PRI_NORMAL + ((MMAL_THREAD_PRI_MAX - MMAL_THREAD_PRI_NORMAL) / 2))
-#define MMAL_THREAD_PRI_LOW \
-  (MMAL_THREAD_PRI_NORMAL - ((MMAL_THREAD_PRI_NORMAL - MMAL_THREAD_PRI_MIN) / 2))
-
-#define mmal_component_set_priority(component, policy, priority) \
-  { \
-    *(int*)((uint8_t*)component->priv + 28) = priority; \
-  }
-
-#define thread_set_priority(policy, priority) \
-  { \
-    struct sched_param sp \
-    { \
-      .sched_priority = priority \
-    }; \
-    pthread_setschedparam(pthread_self(), policy, &sp); \
-  }
-
 namespace MMAL
 {
 class CVideoBufferPoolMMAL : public IVideoBufferPool

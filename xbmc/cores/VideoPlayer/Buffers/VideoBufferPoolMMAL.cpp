@@ -182,7 +182,6 @@ CVideoBufferPoolMMAL::CVideoBufferPoolMMAL()
     status = mmal_component_create(MMAL_COMPONENT_DEFAULT_NULL_SINK, &m_component);
     if (status == MMAL_SUCCESS)
     {
-      mmal_component_set_priority(m_component, SCHED_IDLE, sched_get_priority_min(SCHED_IDLE));
       if (m_component->is_enabled != 0)
         status = mmal_component_disable(m_component);
       if (m_component->input[0]->is_enabled != 0)
