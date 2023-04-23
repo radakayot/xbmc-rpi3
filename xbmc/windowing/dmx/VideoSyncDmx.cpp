@@ -28,6 +28,7 @@ bool CVideoSyncDmx::Setup(PUPDATECLOCK func)
   UpdateClock = func;
   m_abort = false;
   m_winSystem->Register(this);
+  m_winSystem->SetScalingGovernor("performance");
   return true;
 }
 
@@ -62,6 +63,7 @@ void CVideoSyncDmx::Run(CEvent& stopEvent)
 void CVideoSyncDmx::Cleanup()
 {
   m_winSystem->Unregister(this);
+  m_winSystem->SetScalingGovernor("schedutil");
 }
 
 float CVideoSyncDmx::GetFps()
