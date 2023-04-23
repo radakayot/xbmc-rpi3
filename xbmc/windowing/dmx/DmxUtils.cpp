@@ -19,7 +19,10 @@
 #include <mutex>
 
 #include <interface/vcsm/user-vcsm.h>
+#include <pthread.h>
 #include <sys/ioctl.h>
+#include <sys/resource.h>
+#include <sys/syscall.h>
 
 using namespace KODI::WINDOWING::DMX;
 
@@ -108,7 +111,7 @@ bool CDmxUtils::OpenDisplay()
   std::unique_lock<CCriticalSection> lock(m_updateLock);
   m_display = vc_dispmanx_display_open(0);
   if (m_display != (unsigned)DISPMANX_INVALID &&
-      vc_dispmanx_vsync_callback(m_display, CDmxUtils::VerticalSyncCallback, (void*)this) ==
+      vc_dispmanx_vsync_callback(m_display, CDmxUtils::VerticalSyncThreadCallback, (void*)this) ==
           DISPMANX_SUCCESS)
   {
     if (vc_dispmanx_display_get_info(m_display, &m_displayInfo) != DISPMANX_SUCCESS)
@@ -606,5 +609,23 @@ void CDmxUtils::VerticalSyncCallback(DISPMANX_UPDATE_HANDLE_T u, void* arg)
     dmx->m_vsyncCount++;
     lock.unlock();
     dmx->m_vsyncCondition.notifyAll();
+  }
+}
+
+void CDmxUtils::VerticalSyncThreadCallback(DISPMANX_UPDATE_HANDLE_T u, void* arg)
+{
+  CDmxUtils* dmx = static_cast<CDmxUtils*>(arg);
+  if (dmx)
+  {
+    struct sched_param sp;
+    int p = SCHED_FIFO;
+    pthread_t tid = pthread_self();
+    if (pthread_getschedparam(tid, &p, &sp) == 0)
+    {
+      p = SCHED_FIFO;
+      sp.sched_priority = sched_get_priority_max(p);
+      if (pthread_setschedparam(pthread_self(), p, &sp) == 0)
+        vc_dispmanx_vsync_callback(dmx->m_display, CDmxUtils::VerticalSyncCallback, arg);
+    }
   }
 }

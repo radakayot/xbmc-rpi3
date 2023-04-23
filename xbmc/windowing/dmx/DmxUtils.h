@@ -85,6 +85,7 @@ protected:
 
 private:
   static void VerticalSyncCallback(DISPMANX_UPDATE_HANDLE_T u, void* arg);
+  static void VerticalSyncThreadCallback(DISPMANX_UPDATE_HANDLE_T u, void* arg);
 
   bool GetHdmiProperty(HDMI_PROPERTY_T property, uint32_t* param1, uint32_t* param2);
   bool SetHdmiProperty(HDMI_PROPERTY_T property, uint32_t param1, uint32_t param2);
