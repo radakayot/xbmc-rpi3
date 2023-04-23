@@ -617,14 +617,15 @@ void CDmxUtils::VerticalSyncThreadCallback(DISPMANX_UPDATE_HANDLE_T u, void* arg
   CDmxUtils* dmx = static_cast<CDmxUtils*>(arg);
   if (dmx)
   {
+    pthread_t t = pthread_self();
     struct sched_param sp;
     int p = SCHED_FIFO;
-    pthread_t tid = pthread_self();
-    if (pthread_getschedparam(tid, &p, &sp) == 0)
+    if (pthread_getschedparam(t, &p, &sp) == 0)
     {
+      pthread_setname_np(t, "NotifyDMX"); // Rename thread for debug purposes
       p = SCHED_FIFO;
       sp.sched_priority = sched_get_priority_max(p);
-      if (pthread_setschedparam(pthread_self(), p, &sp) == 0)
+      if (pthread_setschedparam(t, p, &sp) == 0)
         vc_dispmanx_vsync_callback(dmx->m_display, CDmxUtils::VerticalSyncCallback, arg);
     }
   }
