@@ -57,16 +57,17 @@ public:
   void Unregister(IDispResource* resource) override;
   int NoOfBuffers() override { return 2; }
 
+  std::unique_ptr<CVideoSync> GetVideoSync(void* clock) override;
+
+  void SetScalingGovernor(const char* governor) { m_DMX->SetScalingGovernor(governor); }
   uint64_t WaitVerticalSync(uint64_t sequence, uint32_t wait_ms = 0)
   {
     return m_DMX->WaitVerticalSync(sequence, nullptr, wait_ms);
   }
-
   uint64_t WaitVerticalSync(uint64_t sequence, uint64_t* time, uint32_t wait_ms = 0)
   {
     return m_DMX->WaitVerticalSync(sequence, time, wait_ms);
   }
-
   bool ReadPixels(int32_t x,
                   int32_t y,
                   int32_t width,
@@ -74,8 +75,6 @@ public:
                   uint32_t format,
                   bool swap,
                   void* pixels);
-
-  std::unique_ptr<CVideoSync> GetVideoSync(void* clock) override;
 
 protected:
   void OnLostDevice();
