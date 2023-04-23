@@ -79,6 +79,7 @@ public:
                   uint32_t pitch);
 
   uint64_t WaitVerticalSync(uint64_t sequence, uint64_t* time, uint32_t wait_ms);
+  void SetScalingGovernor(const char* governor);
 
 protected:
   bool m_initialized{false};

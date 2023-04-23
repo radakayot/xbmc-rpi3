@@ -630,3 +630,10 @@ void CDmxUtils::VerticalSyncThreadCallback(DISPMANX_UPDATE_HANDLE_T u, void* arg
     }
   }
 }
+
+void CDmxUtils::SetScalingGovernor(const char* governor)
+{
+  std::ofstream m_output{"/sys/devices/system/cpu/cpufreq/policy0/scaling_governor"};
+  m_output << std::string(governor);
+  m_output.close();
+}
