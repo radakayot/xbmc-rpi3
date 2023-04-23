@@ -12,6 +12,8 @@
 #include "windowing/VideoSync.h"
 #include "windowing/dmx/WinSystemDmx.h"
 
+#include <pthread.h>
+
 class CVideoSyncDmx : public CVideoSync, IDispResource
 {
 public:
@@ -26,6 +28,7 @@ public:
   void RefreshChanged() override;
 
 private:
+  bool AdjustThreadPriority(pthread_t t);
   std::atomic<bool> m_abort{false};
   KODI::WINDOWING::DMX::CWinSystemDmx* m_winSystem{nullptr};
 };

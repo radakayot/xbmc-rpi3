@@ -31,10 +31,23 @@ bool CVideoSyncDmx::Setup(PUPDATECLOCK func)
   return true;
 }
 
+bool CVideoSyncDmx::AdjustThreadPriority(pthread_t t)
+{
+  struct sched_param sp;
+  int p = SCHED_FIFO;
+  if (pthread_getschedparam(t, &p, &sp) == 0)
+  {
+    p = SCHED_FIFO;
+    sp.sched_priority = sched_get_priority_max(p);
+    return pthread_setschedparam(t, p, &sp) == 0;
+  }
+  return false;
+}
+
 void CVideoSyncDmx::Run(CEvent& stopEvent)
 {
-  CThread::GetCurrentThread()->SetPriority(ThreadPriority::ABOVE_NORMAL);
   uint64_t sequence = 0, last_sequence = 0, time = 0, skew = 0;
+  AdjustThreadPriority(pthread_self());
 
   last_sequence = m_winSystem->WaitVerticalSync(m_winSystem->WaitVerticalSync(0) + 1, &time);
   skew = CurrentHostCounter() - time;
