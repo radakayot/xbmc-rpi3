@@ -141,6 +141,7 @@ void CDVDVideoCodecMMAL::ProcessOutputCallback(MMALPort port, MMALBufferHeader h
           mmal_buffer_header_mem_unlock(header);
           if (!codec->IsRunning())
           {
+            codec->Create(false);
             pthread_t t = pthread_self();
             struct sched_param sp;
             int p = SCHED_FIFO;
@@ -150,7 +151,6 @@ void CDVDVideoCodecMMAL::ProcessOutputCallback(MMALPort port, MMALBufferHeader h
               sp.sched_priority = sched_get_priority_max(p);
               pthread_setschedparam(t, p, &sp);
             }
-            codec->Create(false);
           }
         }
         else
