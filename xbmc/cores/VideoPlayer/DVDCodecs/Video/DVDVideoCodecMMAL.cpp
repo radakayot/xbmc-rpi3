@@ -228,8 +228,8 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
                                       MMAL_TRUE);
       mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
-      mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_TIMESTAMP_FIFO, MMAL_TRUE);
-      mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_VALIDATE_TIMESTAMPS, MMAL_TRUE);
+      mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_TIMESTAMP_FIFO, MMAL_FALSE);
+      mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_VALIDATE_TIMESTAMPS, MMAL_FALSE);
       mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS,
                                      -MMAL_CODEC_NUM_BUFFERS);
 
@@ -785,9 +785,6 @@ void CDVDVideoCodecMMAL::Reset()
         m_buffers.pop_front();
         buffer->Release();
       }
-      //if (mmal_port_flush(m_output) != MMAL_SUCCESS)
-      //  CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to flush output port", __FUNCTION__);
-
       m_state = MCS_FLUSHED;
     }
     m_ptsCurrent = MMAL_TIME_UNKNOWN;
