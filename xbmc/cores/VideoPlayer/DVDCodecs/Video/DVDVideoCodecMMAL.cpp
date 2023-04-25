@@ -785,8 +785,8 @@ void CDVDVideoCodecMMAL::Reset()
         m_buffers.pop_front();
         buffer->Release();
       }
-      if (mmal_port_flush(m_output) != MMAL_SUCCESS)
-        CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to flush output port", __FUNCTION__);
+      //if (mmal_port_flush(m_output) != MMAL_SUCCESS)
+      //  CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to flush output port", __FUNCTION__);
 
       m_state = MCS_FLUSHED;
     }
