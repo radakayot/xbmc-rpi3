@@ -555,7 +555,7 @@ bool CDVDVideoCodecMMAL::AddData(const DemuxPacket& packet)
       return false;
     mmal_buffer_header_reset(header);
     header->cmd = 0;
-    header->flags = MMAL_BUFFER_HEADER_FLAG_EOS;
+    header->flags = MMAL_BUFFER_HEADER_FLAG_ZEROCOPY | MMAL_BUFFER_HEADER_FLAG_EOS;
     header->length = 0;
     m_state = MCS_CLOSING;
     if (mmal_port_send_buffer(m_input, header) != MMAL_SUCCESS)
