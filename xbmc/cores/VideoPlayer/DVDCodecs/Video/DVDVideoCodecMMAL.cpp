@@ -228,12 +228,10 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
                                       MMAL_TRUE);
       mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
-      mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_NO_IMAGE_PADDING, MMAL_TRUE);
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_TIMESTAMP_FIFO, MMAL_TRUE);
-      mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_VALIDATE_TIMESTAMPS,
-                                      MMAL_FALSE);
+      mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_VALIDATE_TIMESTAMPS, MMAL_TRUE);
       mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS,
-                                     -1 - (MMAL_CODEC_NUM_BUFFERS * 2 + 1));
+                                     -MMAL_CODEC_NUM_BUFFERS);
 
       mmal_port_parameter_set_uint32(m_output, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
       mmal_port_parameter_set_boolean(m_output, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
@@ -408,7 +406,7 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
     return false;
   }
 
-  m_input->buffer_num = MMAL_CODEC_NUM_BUFFERS;
+  m_input->buffer_num = MMAL_CODEC_NUM_BUFFERS - 1;
   m_input->buffer_size = m_input->buffer_size_min;
 
   if (m_input->buffer_alignment_min > 0)
@@ -676,7 +674,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
 
     if (rendered > 0 && (drain || rendered >= MMAL_CODEC_NUM_BUFFERS))
     {
-      bool drop = (m_codecControlFlags & DVD_CODEC_CTRL_DROP) != 0;
+      bool drop = (m_codecControlFlags & DVD_CODEC_CTRL_DROP_ANY) != 0;
       CVideoBufferMMAL* buffer = m_buffers.front();
       m_buffers.pop_front();
       lock.unlock();
@@ -905,8 +903,8 @@ void CDVDVideoCodecMMAL::Process()
     if (state == MCS_DECODING)
     {
       std::unique_lock<CCriticalSection> lock(m_recvLock);
-      if (m_buffers.size() > (MMAL_CODEC_NUM_BUFFERS + 1))
-        m_bufferCondition.wait(lock, 40ms);
+      if (m_buffers.size() > MMAL_CODEC_NUM_BUFFERS)
+        m_bufferCondition.wait(lock, 15ms);
       else
       {
         if (!buffer)
@@ -915,11 +913,11 @@ void CDVDVideoCodecMMAL::Process()
         if (mmal_port_send_buffer(m_output, buffer->GetHeader()) == MMAL_SUCCESS)
           buffer = nullptr;
         else
-          m_bufferCondition.wait(lock, 40ms);
+          m_bufferCondition.wait(lock, 15ms);
       }
     }
     else
-      KODI::TIME::Sleep(10ms);
+      KODI::TIME::Sleep(15ms);
     state = m_state;
   }
 
