@@ -367,7 +367,7 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
   m_input->format->es->video.par.num = 1;
   m_input->format->es->video.par.den = 1;
 
-  if (encoding == AV_CODEC_ID_H264 && hints.codec_tag == 0x31637661)
+  if (encoding == MMAL_ENCODING_H264 && hints.codec_tag == 0x31637661)
     m_input->format->encoding_variant = MMAL_ENCODING_VARIANT_H264_AVC1;
 
   if (hints.aspect > 0)
