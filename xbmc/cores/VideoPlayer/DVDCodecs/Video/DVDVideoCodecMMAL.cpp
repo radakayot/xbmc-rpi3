@@ -229,13 +229,13 @@ CDVDVideoCodecMMAL::CDVDVideoCodecMMAL(CProcessInfo& processInfo)
       mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
       mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_TIMESTAMP_FIFO, MMAL_FALSE);
-      mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_VALIDATE_TIMESTAMPS, MMAL_FALSE);
+      mmal_port_parameter_set_boolean(m_input, MMAL_PARAMETER_VIDEO_VALIDATE_TIMESTAMPS,
+                                      MMAL_FALSE);
       mmal_port_parameter_set_uint32(m_input, MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS,
                                      -MMAL_CODEC_NUM_BUFFERS);
 
       mmal_port_parameter_set_uint32(m_output, MMAL_PARAMETER_EXTRA_BUFFERS, 0);
       mmal_port_parameter_set_boolean(m_output, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
-      mmal_port_parameter_set_boolean(m_output, MMAL_PARAMETER_NO_IMAGE_PADDING, MMAL_TRUE);
 
       parameter =
           mmal_port_parameter_alloc_get(m_input, MMAL_PARAMETER_SUPPORTED_ENCODINGS, 0, &status);
@@ -359,12 +359,16 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
   m_input->format->type = MMAL_ES_TYPE_VIDEO;
   m_input->format->flags = MMAL_ES_FORMAT_FLAG_FRAMED;
   m_input->format->encoding = encoding;
+  m_input->format->encoding_variant = MMAL_ENCODING_VARIANT_DEFAULT;
   m_input->format->es->video.width = hints.width;
   m_input->format->es->video.height = hints.height;
   m_input->format->es->video.frame_rate.num = hints.fpsrate;
   m_input->format->es->video.frame_rate.den = hints.fpsscale;
   m_input->format->es->video.par.num = 1;
   m_input->format->es->video.par.den = 1;
+
+  if (encoding == AV_CODEC_ID_H264 && hints.codec_tag == 0x31637661)
+    m_input->format->encoding_variant = MMAL_ENCODING_VARIANT_H264_AVC1;
 
   if (hints.aspect > 0)
   {
@@ -672,7 +676,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
     if (rendered == 0 && m_bufferCondition.wait(lock, 40ms))
       rendered = m_buffers.size();
 
-    if (rendered > 0 && (drain || rendered >= MMAL_CODEC_NUM_BUFFERS))
+    if (rendered > 0 && (drain || rendered > MMAL_CODEC_NUM_BUFFERS / 2))
     {
       bool drop = false; // (m_codecControlFlags & DVD_CODEC_CTRL_DROP_ANY) != 0;
       CVideoBufferMMAL* buffer = m_buffers.front();
@@ -797,7 +801,7 @@ void CDVDVideoCodecMMAL::Reset()
 bool CDVDVideoCodecMMAL::GetCodecStats(double& pts, int& droppedFrames, int& skippedPics)
 {
   if (m_ptsCurrent != MMAL_TIME_UNKNOWN)
-    pts = static_cast<double>(m_ptsCurrent) * DVD_TIME_BASE / AV_TIME_BASE;
+    pts = (static_cast<double>(m_ptsCurrent) / AV_TIME_BASE) * DVD_TIME_BASE;
 
   if (m_droppedFrames != -1)
     droppedFrames = m_droppedFrames + 1;
@@ -900,7 +904,7 @@ void CDVDVideoCodecMMAL::Process()
     if (state == MCS_DECODING)
     {
       std::unique_lock<CCriticalSection> lock(m_recvLock);
-      if (m_buffers.size() > MMAL_CODEC_NUM_BUFFERS)
+      if (m_buffers.size() >= MMAL_CODEC_NUM_BUFFERS)
         m_bufferCondition.wait(lock, 15ms);
       else
       {
