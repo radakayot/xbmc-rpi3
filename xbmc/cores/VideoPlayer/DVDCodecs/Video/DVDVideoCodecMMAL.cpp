@@ -406,7 +406,7 @@ bool CDVDVideoCodecMMAL::Open(CDVDStreamInfo& hints, CDVDCodecOptions& options)
     return false;
   }
 
-  m_input->buffer_num = MMAL_CODEC_NUM_BUFFERS - 1;
+  m_input->buffer_num = MMAL_CODEC_NUM_BUFFERS;
   m_input->buffer_size = m_input->buffer_size_min;
 
   if (m_input->buffer_alignment_min > 0)
@@ -674,7 +674,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
 
     if (rendered > 0 && (drain || rendered >= MMAL_CODEC_NUM_BUFFERS))
     {
-      bool drop = (m_codecControlFlags & DVD_CODEC_CTRL_DROP_ANY) != 0;
+      bool drop = false; // (m_codecControlFlags & DVD_CODEC_CTRL_DROP_ANY) != 0;
       CVideoBufferMMAL* buffer = m_buffers.front();
       m_buffers.pop_front();
       lock.unlock();
