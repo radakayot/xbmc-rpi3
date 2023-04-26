@@ -678,7 +678,6 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
 
     if (rendered > 0 && (drain || rendered > MMAL_CODEC_NUM_BUFFERS / 2))
     {
-      bool drop = false; // (m_codecControlFlags & DVD_CODEC_CTRL_DROP_ANY) != 0;
       CVideoBufferMMAL* buffer = m_buffers.front();
       m_buffers.pop_front();
       lock.unlock();
@@ -715,9 +714,6 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecMMAL::GetPicture(VideoPicture* pVideoPict
         pVideoPicture->lightMetadata = *m_hints.contentLightMetadata.get();
         pVideoPicture->hasLightMetadata = true;
       }
-
-      if (drop && (pVideoPicture->iFlags & DVP_FLAG_DROPPED) == 0)
-        pVideoPicture->iFlags |= DVP_FLAG_DROPPED;
 
       buffer->WritePicture(pVideoPicture);
       pVideoPicture->videoBuffer = buffer;
@@ -776,21 +772,20 @@ void CDVDVideoCodecMMAL::Reset()
   if (state == MCS_DECODING)
   {
     m_state = MCS_FLUSHING;
-    {
-      std::unique_lock<CCriticalSection> lock(m_sendLock);
+    std::unique_lock<CCriticalSection> lock(m_sendLock);
+    if (mmal_queue_length(m_inputPool->queue) < m_inputPool->headers_num)
       if (mmal_port_flush(m_input) != MMAL_SUCCESS)
         CLog::Log(LOGERROR, "CDVDVideoCodecMMAL::{} - unable to flush input port", __FUNCTION__);
-    }
+
+    std::unique_lock<CCriticalSection> lock2(m_recvLock);
+    while (!m_buffers.empty())
     {
-      std::unique_lock<CCriticalSection> lock(m_recvLock);
-      while (!m_buffers.empty())
-      {
-        CVideoBufferMMAL* buffer = m_buffers.front();
-        m_buffers.pop_front();
-        buffer->Release();
-      }
-      m_state = MCS_FLUSHED;
+      CVideoBufferMMAL* buffer = m_buffers.front();
+      m_buffers.pop_front();
+      buffer->Release();
     }
+
+    m_state = MCS_FLUSHED;
     m_ptsCurrent = MMAL_TIME_UNKNOWN;
     m_droppedFrames = -1;
     if ((m_codecControlFlags & DVD_CODEC_CTRL_DRAIN) != 0)
@@ -918,7 +913,7 @@ void CDVDVideoCodecMMAL::Process()
       }
     }
     else
-      KODI::TIME::Sleep(15ms);
+      KODI::TIME::Sleep(10ms);
     state = m_state;
   }
 
